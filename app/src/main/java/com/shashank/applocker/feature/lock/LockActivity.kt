@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import com.shashank.applocker.feature.pin.PinUnlockScreen
 import com.shashank.applocker.security.UnlockSessionManager
+import com.shashank.applocker.service.IntruderSelfie
 import com.shashank.applocker.service.LockCoordinator
 import com.shashank.applocker.ui.theme.AppLockerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -33,6 +34,7 @@ import javax.inject.Inject
 class LockActivity : FragmentActivity() {
     @Inject lateinit var coordinator: LockCoordinator
     @Inject lateinit var sessions: UnlockSessionManager
+    @Inject lateinit var intruderSelfie: IntruderSelfie
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +57,8 @@ class LockActivity : FragmentActivity() {
                         // changed from the main app.
                         onRecoveryAuthorized = ::unlocked,
                         modifier = Modifier.padding(inner),
+                        // Captured from here because this Activity is in the foreground; never from the service.
+                        onWrongPin = { failures -> intruderSelfie.onWrongPin(this@LockActivity, failures) },
                     )
                 }
             }

@@ -8,11 +8,11 @@ A fully offline Android app locker. It locks apps you choose behind a 6-digit PI
 
 ## Status
 
-Implemented: PIN setup, change and unlock; lockout after failed attempts; fingerprint unlock bound to the Android Keystore; choosing protected apps; the accessibility-based lock screen; re-lock rules; settings; privacy notice; erase-all-data.
+Implemented: PIN setup, change and unlock; lockout after failed attempts; fingerprint unlock bound to the Android Keystore; choosing protected apps; the accessibility-based lock screen; re-lock rules; settings; privacy notice; erase-all-data; the optional intruder selfie.
 
-**Not implemented yet** (so do not rely on them): the guided first-run welcome and permission flow, the main-screen "Protection is off" card, the intruder selfie, the "Protect Settings" suggestion, and OEM battery/autostart shortcuts. See [Known limitations](#known-limitations).
+**Not implemented yet** (so do not rely on them): the main-screen "Protection is off" card, the "Protect Settings" suggestion, and OEM battery/autostart shortcuts. A first-run welcome screen was deliberately dropped for now; the Settings, Protection screen explains and links the Accessibility setup. See [Known limitations](#known-limitations).
 
-Nothing in this project has been verified on a physical device yet. Unit tests run on the JVM only. Use the [manual test checklist](#manual-test-checklist) before sharing the APK.
+PIN unlock and fingerprint unlock have been tried on one real phone over USB debugging and worked. Everything else, including the intruder selfie, the accessibility lock flow on other brands and the release build, still needs device testing. Unit tests run on the JVM only. Use the [manual test checklist](#manual-test-checklist) before sharing the APK.
 
 ## Build on Windows
 
@@ -70,6 +70,7 @@ You can also run it from Android Studio, or use an emulator at API 26 or newer. 
 2. Open Settings, then Protected apps, and switch on the apps to lock. Warnings appear for the home screen app, the phone app, Settings and keyboards.
 3. Turn on the Accessibility service (below). Without it nothing is locked.
 4. Optional: Settings, Fingerprint unlock (needs a PIN confirmation, and an enrolled fingerprint).
+5. Optional: Settings, Intruder selfie (see below). It is off by default and only appears on phones with a front camera.
 
 ### Accessibility permission
 
@@ -131,7 +132,7 @@ Verify the signature (use your installed build-tools version):
 & "$env:ANDROID_HOME\build-tools\36.1.0\apksigner.bat" verify --verbose --print-certs app\build\outputs\apk\release\app-release.apk
 ```
 
-Keep `app\build\outputs\mapping\release\mapping.txt` for each released version: it decodes crash stack traces from the minified build. Release builds are not debuggable, contain no `BuildConfig`, and have no logging. See [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) before sharing.
+Keep `app\build\outputs\mapping\release\mapping.txt` for each released version: it decodes crash stack traces from the minified build. Release builds are not debuggable, contain no `BuildConfig`, and have no logging. Run the manual test checklist below before sharing.
 
 ## Sharing the APK with others
 
@@ -148,10 +149,12 @@ Each installation is independent: it generates its own random salt and keys and 
 | Permission | Why |
 | --- | --- |
 | `android.permission.USE_BIOMETRIC` | Show the system fingerprint prompt. |
+| `android.permission.CAMERA` | Intruder selfie only. Requested at runtime when the user turns the option on. |
+| `android.permission.WRITE_EXTERNAL_STORAGE` (`maxSdkVersion="28"`) | Intruder selfie only, on Android 8 and 9, to save into the public Pictures folder. Not requested on Android 10 and newer. |
 | `android.permission.USE_FINGERPRINT` | Added automatically by `androidx.biometric` for API 26-27. Not declared by this app. |
 | `com.shashank.applocker.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Internal signature permission created by AndroidX so a screen-off receiver can be registered as not exported on older Android versions. Only this app can hold it. |
 
-There is no `INTERNET`, no `QUERY_ALL_PACKAGES`, no storage, camera, overlay or boot permission. The app lists launchable apps through a narrow `<queries>` block (launcher, home, dialer and settings intents). The Accessibility service is declared with `BIND_ACCESSIBILITY_SERVICE`, which only the system can hold.
+The manifest also declares `android.hardware.camera` and `android.hardware.camera.front` with `required="false"`, so the app installs on every device. There is no `INTERNET`, no `QUERY_ALL_PACKAGES`, no overlay or boot permission, and no storage permission on Android 10 and newer. The app lists launchable apps through a narrow `<queries>` block (launcher, home, dialer and settings intents). The Accessibility service is declared with `BIND_ACCESSIBILITY_SERVICE`, which only the system can hold.
 
 Components: `MainActivity` (exported, the launcher entry), `LockActivity` (not exported, excluded from Recents), and `AppLockerAccessibilityService` (exported only so the system can bind it). The library receiver `ProfileInstallReceiver` is removed. Cleartext traffic is disabled.
 
@@ -177,6 +180,19 @@ Components: `MainActivity` (exported, the launcher entry), `LockActivity` (not e
 - Detection is event-driven, so a protected app may flash for a moment on a slow device before the lock appears.
 - The Keystore is only as strong as the device's hardware (some phones store keys in software).
 
+## Intruder selfie
+
+Optional and **off by default**. After a set number of wrong PINs in a row on the lock screen, the app silently takes a photo with the front camera and saves it to the gallery as `Pictures/Intruder/Intruder-yyyyMMdd-HHmmss.jpg` (local time; a counter is added if the name exists).
+
+- **Turning it on:** Settings, Intruder selfie. It needs your PIN, then asks for the camera permission (and storage on Android 8 and 9). If you deny, it stays off. If you chose "don't ask again", a button opens the app settings.
+- **When it takes a photo:** you choose in Settings how many wrong PINs in a row must happen first: 1, 2, 3 (the default) or 5. The photo is taken at that wrong PIN and at each further wrong PIN until the PIN is entered correctly (or the device screen lock resets the count). The count is the same persisted failed-attempt counter used for the lockout, so it survives the lock screen closing and reopening. It only applies if the option is on, the permission is granted and the phone has a front camera. Fingerprint rejections, cancelling, and dismissing the lock screen never take a photo. A lockout refusal is not a wrong PIN either.
+- **Silent:** no preview, no flash, nothing on screen. It runs off the main thread and can never delay or change the PIN result or the lockout. Any failure is swallowed. The camera is opened only for the shot and released right after, and only one capture runs at a time.
+- **Always from the lock screen,** which is in the foreground. Android blocks camera use from background contexts, so the Accessibility service never takes photos.
+- **If permission is revoked later** (for example by Android's auto-reset for unused apps), or the camera privacy switch is on (Android 12+), the photo fails silently and Settings shows "Camera permission needed" next to the option.
+- **Privacy:** photos go to the shared Pictures folder by design. Any app with photo access, and any cloud gallery backup you turned on (such as Google Photos), can see or upload them. The app itself never uploads anything. Anyone who gets into the phone can also delete them. Erasing the app's data does not delete the photos already in the gallery.
+- **Cannot be hidden:** Android 12 and newer shows a camera indicator while the camera is in use, and some regions force a shutter sound.
+- **Needs device testing:** the photo is taken with CameraX `ImageCapture` and no preview. Some phones may need a hidden preview to produce a picture. If a phone produces no photo, note the model.
+
 ## Privacy
 
 Everything stays on the device. The app has no network permission, no analytics, no accounts and no ads, and nothing leaves the device through it.
@@ -194,12 +210,13 @@ Run what is possible and note what was not run. Use devices or emulators at API 
 7. **Settings locked:** lock the Settings app and confirm you cannot reach Accessibility settings without unlocking.
 8. **Service off:** switch the service off; Settings, Protection shows "Protection is off". Turn it on; it recovers.
 9. **Change PIN:** needs the current PIN; the old PIN stops working; fingerprint still works.
-10. **Erase all data:** wrong PIN stops it; right PIN then the second confirmation erases everything and the app restarts at PIN setup, with apps no longer locked.
-11. **Upgrade:** install a newer build over an older one signed with the same key. PIN and selections must remain.
-12. **Process death:** force-stop the app while an app is unlocked; it must be locked again when reopened.
-13. **Lock screen launch:** check that the service can start the lock screen over a protected app on each device. If a device blocks it, the service sends the user Home instead; record the device.
-14. **Layout:** phone, tablet and foldable; portrait and landscape; large font; dark and light theme; dynamic colour on Android 12+.
-15. **Observed delay:** note how long the lock screen takes to appear after a protected app opens.
+10. **Intruder selfie:** it is off by default. Turn it on (PIN, then permission); deny the permission once and check it stays off with a message; choose "don't ask again" and check the "Open app settings" button. With the default of 3, type two wrong PINs (no photo), then a third: an upright `Intruder-...jpg` appears in `Pictures/Intruder`, visible in the Gallery app, with no preview and no delay on the lock screen. Further wrong PINs each give a photo with a distinct name. Change the setting to 1 and 5 and check the photo starts at the right attempt. A correct PIN resets the count. Fingerprint rejection, cancel and Back must not take photos. Revoke the camera permission in system settings: nothing crashes and Settings shows "Camera permission needed". A phone with no front camera must not show the option. On Android 8 or 9 the storage permission is requested too.
+11. **Erase all data:** wrong PIN stops it; right PIN then the second confirmation erases everything and the app restarts at PIN setup, with apps no longer locked.
+12. **Upgrade:** install a newer build over an older one signed with the same key. PIN and selections must remain.
+13. **Process death:** force-stop the app while an app is unlocked; it must be locked again when reopened.
+14. **Lock screen launch:** check that the service can start the lock screen over a protected app on each device. If a device blocks it, the service sends the user Home instead; record the device.
+15. **Layout:** phone, tablet and foldable; portrait and landscape; large font; dark and light theme; dynamic colour on Android 12+.
+16. **Observed delay:** note how long the lock screen takes to appear after a protected app opens.
 
 ## Known limitations
 
@@ -213,5 +230,6 @@ Run what is possible and note what was not run. Use devices or emulators at API 
 - The lock screen is started by the Accessibility service. Android normally allows this, but a device may block it; the service then sends the user Home. This is untested on real devices.
 - Deleting this app's data from system settings, or erasing it, removes the PIN and the lock.
 - Fingerprint behaviour (Keystore enforcement, exceptions and invalidation) differs between manufacturers and API 26-29 versus 30+. It must be checked on real devices.
-- Not built yet: first-run guided setup, the main-screen status card, intruder selfie, "Protect Settings" suggestion, OEM autostart shortcuts, and reconciling uninstalled apps when the service starts (it runs when the picker opens).
+- Intruder photos sit in the shared gallery, so anyone who gets into the phone can delete them, and the user's cloud gallery app may back them up. Android 12+ shows a camera indicator during capture, and some regions force a shutter sound. Photos are not taken for fingerprint rejections, and not before the chosen number of wrong PINs. Whether `ImageCapture` works without a preview depends on the phone and is untested.
+- Not built yet: the main-screen status card, the "Protect Settings" suggestion, and OEM autostart shortcuts.
 - Library versions are held back so everything compiles against SDK 36.1.

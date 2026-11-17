@@ -21,3 +21,12 @@ keystore.properties
 local.properties
 build/
 .gradle/
+.claude/
+
+# Not for the repository: IDE settings, tool caches, local notes, docs and tests
+.idea/
+.kotlin/
+graphify-out/
+CLAUDE.md
+docs/
+app/src/test/

@@ -69,6 +69,9 @@ class LockoutManager @Inject constructor(
         }
     }
 
+    /** Consecutive wrong PINs since the last success or credential reset. */
+    suspend fun failedAttempts(): Int = mutex.withLock { repository.get().failedAttempts }
+
     /** Correct PIN: forget all failures. */
     suspend fun recordSuccess() = mutex.withLock { repository.reset() }
 

@@ -34,6 +34,17 @@ class PinAuthenticator @Inject constructor(
     }
 
     /** Takes ownership of [pin] and wipes it. */
+    /**
+     * Consecutive wrong PINs so far (persisted, so it survives the lock screen closing).
+     * If the count cannot be read this returns [Int.MAX_VALUE], so a caller that acts after N
+     * failures errs on the side of acting.
+     */
+    suspend fun failedAttempts(): Int = try {
+        lockout.failedAttempts()
+    } catch (_: SecretStoreException) {
+        Int.MAX_VALUE
+    }
+
     suspend fun attempt(pin: CharArray): AttemptResult = mutex.withLock {
         try {
             when (val before = status()) {

@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
+import com.shashank.applocker.domain.apps.ProtectedAppReconciler
 import com.shashank.applocker.domain.model.RelockDelay
 import com.shashank.applocker.domain.repository.ProtectedAppRepository
 import com.shashank.applocker.domain.repository.SettingsRepository
@@ -39,6 +40,7 @@ class AppLockerAccessibilityService : AccessibilityService() {
     @Inject lateinit var sessions: UnlockSessionManager
     @Inject lateinit var status: ServiceStatus
     @Inject lateinit var coordinator: LockCoordinator
+    @Inject lateinit var reconciler: ProtectedAppReconciler
 
     private var scope: CoroutineScope? = null
     private var ignored: Set<String> = emptySet()
@@ -54,6 +56,15 @@ class AppLockerAccessibilityService : AccessibilityService() {
     private var homePackages: Set<String> = emptySet()
     private val realAppCache = HashMap<String, Boolean>()
     private var receiverRegistered = false
+    private var packageReceiverRegistered = false
+    private val packageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != Intent.ACTION_PACKAGE_FULLY_REMOVED) return
+            // An app was uninstalled: it must disappear from the protected list.
+            val removed = intent.data?.schemeSpecificPart ?: return
+            scope?.launch { reconciler.onPackageRemoved(removed) }
+        }
+    }
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -91,6 +102,11 @@ class AppLockerAccessibilityService : AccessibilityService() {
         }
         ContextCompat.registerReceiver(this, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
+        val packageFilter = IntentFilter(Intent.ACTION_PACKAGE_FULLY_REMOVED).apply { addDataScheme("package") }
+        ContextCompat.registerReceiver(this, packageReceiver, packageFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        packageReceiverRegistered = true
+        // Drop entries for apps uninstalled while the service was not running.
+        newScope.launch { reconciler.reconcile() }
         status.onConnected()
     }
 
@@ -169,6 +185,10 @@ class AppLockerAccessibilityService : AccessibilityService() {
         if (receiverRegistered) {
             runCatching { unregisterReceiver(screenReceiver) }
             receiverRegistered = false
+        }
+        if (packageReceiverRegistered) {
+            runCatching { unregisterReceiver(packageReceiver) }
+            packageReceiverRegistered = false
         }
         gate.reset() // a service that stops forgets every unlock
         coordinator.clear()

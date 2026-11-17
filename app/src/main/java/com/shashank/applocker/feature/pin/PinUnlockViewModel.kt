@@ -76,6 +76,9 @@ sealed interface PinUnlockEffect {
     /** Device credential confirmed: the user may now choose a new PIN. */
     data object RecoveryAuthorized : PinUnlockEffect
 
+    /** A PIN was checked and was wrong. Not sent for lockouts, fingerprint or cancels. */
+    data class WrongPin(val failedAttempts: Int) : PinUnlockEffect
+
     /** Show the system fingerprint prompt using this cipher in a CryptoObject. */
     data class ShowFingerprintPrompt(val cipher: Cipher) : PinUnlockEffect
 }
@@ -148,6 +151,7 @@ class PinUnlockViewModel @Inject constructor(
                 is AttemptResult.Incorrect -> {
                     _state.update { it.copy(error = PinUnlockError.Incorrect) }
                     applyStatus(result.status)
+                    _effects.send(PinUnlockEffect.WrongPin(authenticator.failedAttempts()))
                 }
                 is AttemptResult.Locked -> applyStatus(result.status)
                 AttemptResult.StorageError ->

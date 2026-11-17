@@ -1,6 +1,13 @@
 package com.shashank.applocker.feature.settings
 
 import android.content.Context
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.OutlinedButton
+import com.shashank.applocker.domain.intruder.IntruderPermissions
+import com.shashank.applocker.domain.intruder.IntruderThreshold
+import com.shashank.applocker.feature.protection.openAppDetails
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -75,6 +82,14 @@ fun SettingsScreen(
     val negative = stringResource(R.string.fingerprint_prompt_negative)
     val versionLabel = remember(context) { versionLabel(context) }
 
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        val granted = results.isNotEmpty() && results.values.all { it }
+        // After a denial, "no rationale" means the user chose "don't ask again".
+        val permanentlyDenied = !granted && activity != null &&
+            results.filterValues { !it }.keys.any { !activity.shouldShowRequestPermissionRationale(it) }
+        viewModel.onEvent(SettingsEvent.CameraPermissionResult(granted, permanentlyDenied))
+    }
+
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
@@ -87,6 +102,9 @@ fun SettingsScreen(
                     onError = { viewModel.onEvent(SettingsEvent.EnrollmentError(it)) },
                 ) ?: viewModel.onEvent(SettingsEvent.EnrollmentError(-1))
                 SettingsEffect.Wiped -> onWiped()
+                SettingsEffect.RequestCameraPermission -> permissionLauncher.launch(
+                    IntruderPermissions.required(Build.VERSION.SDK_INT).toTypedArray(),
+                )
             }
         }
     }
@@ -105,6 +123,7 @@ fun SettingsScreen(
         onOpenApps = onOpenApps,
         onOpenProtection = onOpenProtection,
         onChangePin = onChangePin,
+        onOpenAppSettings = { openAppDetails(context) },
     )
 }
 
@@ -126,13 +145,18 @@ fun SettingsContent(
     onOpenApps: () -> Unit = {},
     onOpenProtection: () -> Unit = {},
     onChangePin: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = {},
 ) {
     val confirm = state.pinConfirm
     if (confirm != null) {
         PinEntryContent(
             title = stringResource(R.string.settings_confirm_pin_title),
             subtitle = stringResource(
-                if (confirm.purpose == ConfirmPurpose.WIPE) R.string.settings_wipe_pin_subtitle else R.string.settings_confirm_pin_subtitle,
+                when (confirm.purpose) {
+                    ConfirmPurpose.WIPE -> R.string.settings_wipe_pin_subtitle
+                    ConfirmPurpose.INTRUDER -> R.string.intruder_pin_subtitle
+                    ConfirmPurpose.FINGERPRINT -> R.string.settings_confirm_pin_subtitle
+                },
             ),
             pin = confirm.pin,
             showPin = false,
@@ -235,6 +259,57 @@ fun SettingsContent(
             )
         }
 
+        if (state.cameraAvailable) {
+            Section(R.string.settings_section_intruder)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .toggleable(
+                        value = state.intruderEnabled,
+                        role = Role.Switch,
+                        onValueChange = { onEvent(SettingsEvent.ToggleIntruder(it)) },
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(stringResource(R.string.intruder_title), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.intruder_summary),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = state.intruderEnabled, onCheckedChange = null)
+            }
+            Text(stringResource(R.string.intruder_after_title), style = MaterialTheme.typography.titleSmall)
+            Column(Modifier.selectableGroup()) {
+                IntruderThreshold.options.forEach { attempts ->
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(
+                            selected = state.intruderAfterAttempts == attempts,
+                            role = Role.RadioButton,
+                            onClick = { onEvent(SettingsEvent.SetIntruderThreshold(attempts)) },
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = state.intruderAfterAttempts == attempts, onClick = null)
+                        Text(stringResource(thresholdLabel(attempts)), Modifier.padding(start = 16.dp))
+                    }
+                }
+            }
+            Text(stringResource(R.string.intruder_privacy), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (state.intruderEnabled && state.cameraPermissionMissing) {
+                Text(stringResource(R.string.intruder_permission_needed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
+            if (state.cameraNeedsSystemSettings || (state.intruderEnabled && state.cameraPermissionMissing)) {
+                OutlinedButton(onClick = onOpenAppSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.intruder_open_settings))
+                }
+            }
+        }
+
         Section(R.string.settings_section_privacy)
         Text(stringResource(R.string.privacy_notice), style = MaterialTheme.typography.bodyMedium)
 
@@ -307,6 +382,13 @@ private fun WipeDialog(wiping: Boolean, onEvent: (SettingsEvent) -> Unit) {
     )
 }
 
+private fun thresholdLabel(attempts: Int): Int = when (attempts) {
+    1 -> R.string.intruder_after_1
+    2 -> R.string.intruder_after_2
+    5 -> R.string.intruder_after_5
+    else -> R.string.intruder_after_3
+}
+
 private fun relockLabel(delay: RelockDelay): Int = when (delay) {
     RelockDelay.IMMEDIATELY -> R.string.relock_immediately
     RelockDelay.AFTER_30_SECONDS -> R.string.relock_30s
@@ -331,5 +413,8 @@ private fun messageText(message: SettingsMessage?): Int? = when (message) {
     SettingsMessage.FingerprintDisabled -> R.string.settings_fp_disabled
     SettingsMessage.AllLocked -> R.string.settings_all_locked
     SettingsMessage.WipeIncomplete -> R.string.settings_wipe_incomplete
+    SettingsMessage.IntruderEnabled -> R.string.intruder_enabled
+    SettingsMessage.IntruderDisabled -> R.string.intruder_disabled
+    SettingsMessage.CameraDenied -> R.string.intruder_denied
     is SettingsMessage.Fingerprint -> fingerprintMessageRes(message.message) ?: R.string.settings_enroll_failed
 }

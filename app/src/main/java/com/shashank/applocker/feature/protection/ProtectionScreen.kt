@@ -109,7 +109,7 @@ private fun openAccessibilitySettings(context: Context) {
     }
 }
 
-private fun openAppDetails(context: Context) {
+internal fun openAppDetails(context: Context) {
     try {
         context.startActivity(
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))

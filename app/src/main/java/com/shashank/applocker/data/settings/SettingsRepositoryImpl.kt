@@ -4,6 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import com.shashank.applocker.domain.intruder.IntruderThreshold
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.shashank.applocker.domain.model.AppSettings
@@ -29,6 +31,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 fingerprintEnabled = p[FINGERPRINT_ENABLED] ?: false,
                 relockDelay = RelockDelay.fromName(p[RELOCK_DELAY]),
                 showSystemApps = p[SHOW_SYSTEM_APPS] ?: false,
+                intruderSelfieEnabled = p[INTRUDER_SELFIE] ?: false,
+                intruderAfterAttempts = IntruderThreshold.normalize(p[INTRUDER_AFTER]),
             )
         }
 
@@ -44,6 +48,14 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[SHOW_SYSTEM_APPS] = show }
     }
 
+    override suspend fun setIntruderSelfieEnabled(enabled: Boolean) {
+        dataStore.edit { it[INTRUDER_SELFIE] = enabled }
+    }
+
+    override suspend fun setIntruderAfterAttempts(attempts: Int) {
+        dataStore.edit { it[INTRUDER_AFTER] = IntruderThreshold.normalize(attempts) }
+    }
+
     override suspend fun clear() {
         dataStore.edit { it.clear() }
     }
@@ -51,6 +63,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private companion object {
         val FINGERPRINT_ENABLED = booleanPreferencesKey("fingerprint_enabled")
         val RELOCK_DELAY = stringPreferencesKey("relock_delay")
+        val INTRUDER_AFTER = intPreferencesKey("intruder_after_attempts")
+        val INTRUDER_SELFIE = booleanPreferencesKey("intruder_selfie")
         val SHOW_SYSTEM_APPS = booleanPreferencesKey("show_system_apps")
     }
 }

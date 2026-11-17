@@ -2,6 +2,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Intruder selfie (optional, off by default). The storage permission is only for Android 8 to 9. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <!-- The app installs on every device; the selfie option is hidden when there is no front camera. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.front"
+        android:required="false" />
+
     <!-- Package visibility without QUERY_ALL_PACKAGES: launcher apps, plus the home, dialer and
          settings handlers so they can be recognised as essential apps. -->
     <queries>

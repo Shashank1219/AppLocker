@@ -38,7 +38,7 @@ interface BiometricKeyStore {
  * - on API 30+, `AUTH_BIOMETRIC_STRONG` only, matching the Strong-only rule.
  * No `DEVICE_CREDENTIAL`: it cannot be combined with a CryptoObject on API 28 and 29.
  *
- * Not testable without a device. See docs/BIOMETRIC_KEY_TESTING.md.
+ * Not testable without a device.
  */
 @Singleton
 class AndroidBiometricKeyStore @Inject constructor() : BiometricKeyStore {

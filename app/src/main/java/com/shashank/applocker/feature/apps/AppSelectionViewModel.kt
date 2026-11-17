@@ -6,6 +6,7 @@ import com.shashank.applocker.domain.apps.AppItem
 import com.shashank.applocker.domain.apps.AppListBuilder
 import com.shashank.applocker.domain.apps.InstalledAppsSnapshot
 import com.shashank.applocker.domain.apps.InstalledAppsSource
+import com.shashank.applocker.domain.apps.ProtectedAppReconciler
 import com.shashank.applocker.domain.repository.ProtectedAppRepository
 import com.shashank.applocker.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +41,9 @@ sealed interface AppSelectionEvent {
     data object DismissWarning : AppSelectionEvent
     data class ShowSystemApps(val show: Boolean) : AppSelectionEvent
     data object Retry : AppSelectionEvent
+
+    /** Reload quietly, for example when returning to the screen. No loading spinner. */
+    data object Refresh : AppSelectionEvent
     data object DismissSaveError : AppSelectionEvent
 }
 
@@ -48,6 +52,7 @@ class AppSelectionViewModel @Inject constructor(
     private val source: InstalledAppsSource,
     private val protectedApps: ProtectedAppRepository,
     private val settings: SettingsRepository,
+    private val reconciler: ProtectedAppReconciler,
 ) : ViewModel() {
     private sealed interface Load {
         data object Loading : Load
@@ -97,6 +102,7 @@ class AppSelectionViewModel @Inject constructor(
             AppSelectionEvent.DismissWarning -> warning.value = null
             is AppSelectionEvent.ShowSystemApps -> viewModelScope.launch { settings.setShowSystemApps(event.show) }
             AppSelectionEvent.Retry -> refresh()
+            AppSelectionEvent.Refresh -> refresh(silent = true)
             AppSelectionEvent.DismissSaveError -> saveFailed.value = false
         }
     }
@@ -122,8 +128,8 @@ class AppSelectionViewModel @Inject constructor(
     }
 
     /** Loads the device's apps and drops selections for packages that are really gone. */
-    private fun refresh() {
-        load.value = Load.Loading
+    private fun refresh(silent: Boolean = false) {
+        if (!silent || load.value !is Load.Ready) load.value = Load.Loading
         viewModelScope.launch {
             val snapshot = try {
                 source.load().takeIf { it.apps.isNotEmpty() }
@@ -134,21 +140,10 @@ class AppSelectionViewModel @Inject constructor(
             }
             if (snapshot == null) {
                 // No reconcile on a failed or empty read: that could wipe the whole selection.
-                load.value = Load.Failed
+                if (!silent || load.value !is Load.Ready) load.value = Load.Failed
                 return@launch
             }
-            try {
-                val launchable = snapshot.apps.mapTo(HashSet()) { it.packageName }
-                // Disabled or temporarily hidden apps are not launchable but still installed: keep them.
-                val keep = protectedApps.observeSelectedPackages().first().filterTo(HashSet()) {
-                    it in launchable || source.isInstalled(it)
-                }
-                protectedApps.reconcile(keep)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                // The list is still usable; stale entries are tried again next time.
-            }
+            reconciler.reconcile(snapshot)
             load.value = Load.Ready(snapshot)
         }
     }

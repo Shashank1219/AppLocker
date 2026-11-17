@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shashank.applocker.R
 import com.shashank.applocker.domain.apps.AppItem
@@ -46,6 +48,8 @@ fun AppSelectionScreen(
 ) {
     SecureWindow() // The list shows which apps are protected.
     val state = viewModel.state.collectAsStateWithLifecycle().value
+    // Apps may be installed or uninstalled while the user is elsewhere.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(AppSelectionEvent.Refresh) }
     AppSelectionContent(
         state = state,
         onEvent = viewModel::onEvent,

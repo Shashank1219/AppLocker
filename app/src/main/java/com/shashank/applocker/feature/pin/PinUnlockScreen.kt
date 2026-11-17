@@ -34,6 +34,8 @@ fun PinUnlockScreen(
     onUnlocked: () -> Unit,
     onRecoveryAuthorized: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Called after each wrong PIN (used by the lock screen for the intruder selfie). */
+    onWrongPin: (failedAttempts: Int) -> Unit = {},
     viewModel: PinUnlockViewModel = hiltViewModel(),
 ) {
     SecureWindow()
@@ -50,6 +52,7 @@ fun PinUnlockScreen(
             when (effect) {
                 PinUnlockEffect.Unlocked -> onUnlocked()
                 PinUnlockEffect.RecoveryAuthorized -> onRecoveryAuthorized()
+                is PinUnlockEffect.WrongPin -> onWrongPin(effect.failedAttempts)
                 is PinUnlockEffect.ShowFingerprintPrompt -> activity?.showFingerprintPrompt(
                     cipher = effect.cipher,
                     title = fpTitle,
