@@ -61,6 +61,11 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        viewModel.onReturned()
+    }
+
     override fun onStop() {
         super.onStop()
         // Rotation also stops the activity; only a real trip to the background relocks.

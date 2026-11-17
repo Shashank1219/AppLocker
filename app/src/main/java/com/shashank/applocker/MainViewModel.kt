@@ -56,5 +56,8 @@ class MainViewModel @Inject constructor(
     }
 
     /** Called when the app leaves the foreground (not for rotation). */
-    fun onLeftForeground() = session.lock()
+    fun onLeftForeground() = session.onLeftForeground()
+
+    /** Called when the app is back in front. */
+    fun onReturned() = session.onReturned()
 }

@@ -35,6 +35,8 @@
     <string name="fingerprint_msg_not_enrolled">No fingerprint is set up on this device. Use your PIN.</string>
     <string name="fingerprint_msg_failed">Fingerprint did not work. Use your PIN.</string>
     <string name="fingerprint_msg_key_changed">Your fingerprints changed. Turn fingerprint unlock back on in Settings with your PIN.</string>
+    <string name="apps_state_protected">Protected</string>
+    <string name="apps_state_unprotected">Not protected</string>
     <string name="apps_title">Protected apps</string>
     <string name="apps_search">Search apps</string>
     <string name="apps_search_clear">Clear search</string>

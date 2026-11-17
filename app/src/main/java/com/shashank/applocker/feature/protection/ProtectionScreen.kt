@@ -37,6 +37,7 @@ fun ProtectionScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProtectionViewModel = hiltViewModel(),
+    trip: SystemTripViewModel = hiltViewModel(),
 ) {
     val state = viewModel.state.collectAsStateWithLifecycle().value
     val context = LocalContext.current
@@ -45,8 +46,9 @@ fun ProtectionScreen(
     ProtectionContent(
         state = state,
         showRestrictedHelp = Build.VERSION.SDK_INT >= 33,
-        onOpenAccessibilitySettings = { openAccessibilitySettings(context) },
-        onOpenAppInfo = { openAppDetails(context) },
+        // Coming straight back from these system screens must not ask for the PIN again.
+        onOpenAccessibilitySettings = { if (openAccessibilitySettings(context)) trip.expectTrip() },
+        onOpenAppInfo = { if (openAppDetails(context)) trip.expectTrip() },
         onBack = onBack,
         modifier = modifier,
     )
@@ -98,24 +100,23 @@ fun ProtectionContent(
     }
 }
 
-/** Opens system accessibility settings. Falls back to this app's info screen if a device lacks it. */
-private fun openAccessibilitySettings(context: Context) {
-    try {
-        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    } catch (_: ActivityNotFoundException) {
-        openAppDetails(context)
-    } catch (_: SecurityException) {
-        openAppDetails(context)
-    }
+/** Opens system accessibility settings, or the app info screen if a device lacks it. True if a screen opened. */
+internal fun openAccessibilitySettings(context: Context): Boolean = try {
+    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    true
+} catch (_: ActivityNotFoundException) {
+    openAppDetails(context)
+} catch (_: SecurityException) {
+    openAppDetails(context)
 }
 
-internal fun openAppDetails(context: Context) {
-    try {
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    } catch (_: Exception) {
-        // Nothing more to try. The explanation on screen still tells the user where to go.
-    }
+/** True if the app info screen opened. */
+internal fun openAppDetails(context: Context): Boolean = try {
+    context.startActivity(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    )
+    true
+} catch (_: Exception) {
+    false // Nothing more to try. The explanation on screen still tells the user where to go.
 }

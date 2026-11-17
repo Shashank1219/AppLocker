@@ -21,8 +21,8 @@ private val openRoutes = setOf(Route.PinSetup.path, Route.PinUnlock.path)
 
 /**
  * Navigation state can be restored after process death or rotation, so it is never trusted:
- * a protected route renders nothing while locked, and a locked session is sent back to
- * [startDestination] (the PIN screen).
+ * a protected route renders nothing while locked, and a locked session is sent to the PIN
+ * unlock screen.
  */
 @Composable
 fun AppNavHost(
@@ -36,7 +36,9 @@ fun AppNavHost(
     val route = navController.currentBackStackEntryAsState().value?.destination?.route
     LaunchedEffect(isUnlocked, route) {
         if (!isUnlocked && route != null && route !in openRoutes) {
-            navController.navigate(startDestination) { popUpTo(navController.graph.id) { inclusive = true } }
+            // A protected screen is only reachable once a PIN exists, so a locked session always
+            // goes to the PIN unlock screen, never back to PIN setup (the start screen of a first run).
+            navController.navigate(Route.PinUnlock.path) { popUpTo(navController.graph.id) { inclusive = true } }
         }
     }
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {

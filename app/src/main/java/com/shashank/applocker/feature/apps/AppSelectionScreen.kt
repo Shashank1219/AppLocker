@@ -19,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +31,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -159,6 +162,7 @@ private fun Centered(content: @Composable () -> Unit) {
 private fun AppRow(item: AppItem, onEvent: (AppSelectionEvent) -> Unit, icon: @Composable (String) -> Unit) {
     // A missing app can only be removed from the selection, never added.
     val enabled = item.available || item.selected
+    val stateText = stringResource(if (item.selected) R.string.apps_state_protected else R.string.apps_state_unprotected)
     Row(
         Modifier
             .fillMaxWidth()
@@ -169,6 +173,7 @@ private fun AppRow(item: AppItem, onEvent: (AppSelectionEvent) -> Unit, icon: @C
                 role = Role.Switch,
                 onValueChange = { onEvent(AppSelectionEvent.Toggle(item.packageName, it)) },
             )
+            .semantics { stateDescription = stateText }
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -188,7 +193,17 @@ private fun AppRow(item: AppItem, onEvent: (AppSelectionEvent) -> Unit, icon: @C
             }
         }
         Spacer(Modifier.width(16.dp))
-        Switch(checked = item.selected, onCheckedChange = null, enabled = enabled)
+        // A padlock instead of a switch: open when the app is free, closed when it is protected.
+        Icon(
+            painter = painterResource(if (item.selected) R.drawable.ic_lock_closed else R.drawable.ic_lock_open),
+            contentDescription = null, // the row announces the state
+            tint = when {
+                !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                item.selected -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.size(28.dp),
+        )
     }
 }
 

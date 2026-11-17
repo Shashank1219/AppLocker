@@ -57,6 +57,7 @@ import com.shashank.applocker.feature.biometric.showFingerprintPrompt
 import com.shashank.applocker.feature.pin.fingerprintMessageRes
 import com.shashank.applocker.feature.protection.ProtectionStatus
 import com.shashank.applocker.feature.protection.ProtectionViewModel
+import com.shashank.applocker.feature.protection.SystemTripViewModel
 import com.shashank.applocker.security.BiometricAvailability
 import com.shashank.applocker.ui.components.PinEntryContent
 import com.shashank.applocker.ui.components.SecureWindow
@@ -71,6 +72,7 @@ fun SettingsScreen(
     onWiped: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
     protectionViewModel: ProtectionViewModel = hiltViewModel(),
+    trip: SystemTripViewModel = hiltViewModel(),
 ) {
     SecureWindow()
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -123,7 +125,7 @@ fun SettingsScreen(
         onOpenApps = onOpenApps,
         onOpenProtection = onOpenProtection,
         onChangePin = onChangePin,
-        onOpenAppSettings = { openAppDetails(context) },
+        onOpenAppSettings = { if (openAppDetails(context)) trip.expectTrip() },
     )
 }
 
