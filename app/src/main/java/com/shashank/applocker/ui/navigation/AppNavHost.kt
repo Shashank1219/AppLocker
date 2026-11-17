@@ -15,6 +15,7 @@ import com.shashank.applocker.feature.lock.AppLockScreen
 import com.shashank.applocker.feature.onboarding.OnboardingScreen
 import com.shashank.applocker.feature.pin.PinSetupScreen
 import com.shashank.applocker.feature.pin.PinUnlockScreen
+import com.shashank.applocker.feature.protection.ProtectionScreen
 import com.shashank.applocker.feature.settings.SettingsScreen
 
 /** Screens reachable without the PIN. Everything else is gated on [isUnlocked]. */
@@ -60,7 +61,10 @@ fun AppNavHost(
         }
         composable(Route.BiometricUnlock.path) { Gated(isUnlocked) { BiometricUnlockScreen() } }
         composable(Route.AppSelection.path) { Gated(isUnlocked) { AppSelectionScreen(onBack = { navController.popBackStack() }) } }
-        composable(Route.Settings.path) { Gated(isUnlocked) { SettingsScreen(onOpenApps = { navController.navigate(Route.AppSelection.path) }) } }
+        composable(Route.Settings.path) { Gated(isUnlocked) { SettingsScreen(onOpenApps = { navController.navigate(Route.AppSelection.path) },
+                    onOpenProtection = { navController.navigate(Route.Protection.path) },
+                ) } }
+        composable(Route.Protection.path) { Gated(isUnlocked) { ProtectionScreen(onBack = { navController.popBackStack() }) } }
         composable(Route.AppLock.path) { Gated(isUnlocked) { AppLockScreen() } }
     }
 }

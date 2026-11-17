@@ -10,6 +10,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.Button
+import androidx.compose.material3.RadioButton
+import com.shashank.applocker.domain.model.RelockDelay
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -43,6 +48,7 @@ import com.shashank.applocker.ui.components.findActivity
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     onOpenApps: () -> Unit = {},
+    onOpenProtection: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     SecureWindow()
@@ -69,7 +75,7 @@ fun SettingsScreen(
     // The user may enrol a fingerprint in system settings and come back.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(SettingsEvent.Refresh) }
 
-    SettingsContent(state = state, onEvent = viewModel::onEvent, onOpenApps = onOpenApps, modifier = modifier)
+    SettingsContent(state = state, onEvent = viewModel::onEvent, onOpenApps = onOpenApps, onOpenProtection = onOpenProtection, modifier = modifier)
 }
 
 /** Stateless settings UI. */
@@ -79,6 +85,7 @@ fun SettingsContent(
     onEvent: (SettingsEvent) -> Unit,
     modifier: Modifier = Modifier,
     onOpenApps: () -> Unit = {},
+    onOpenProtection: () -> Unit = {},
 ) {
     val confirm = state.pinConfirm
     if (confirm != null) {
@@ -127,6 +134,17 @@ fun SettingsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Column(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onOpenProtection),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(stringResource(R.string.settings_open_protection), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.settings_open_protection_summary),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -150,6 +168,25 @@ fun SettingsContent(
             }
             Switch(checked = state.fingerprintEnabled, onCheckedChange = null, enabled = state.fingerprintToggleEnabled)
         }
+        Text(stringResource(R.string.settings_relock_title), style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.selectableGroup()) {
+            RelockDelay.entries.forEach { delay ->
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(
+                        selected = state.relockDelay == delay,
+                        role = Role.RadioButton,
+                        onClick = { onEvent(SettingsEvent.SetRelockDelay(delay)) },
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = state.relockDelay == delay, onClick = null)
+                    Text(stringResource(relockLabel(delay)), Modifier.padding(start = 16.dp))
+                }
+            }
+        }
+        Button(onClick = { onEvent(SettingsEvent.LockAllNow) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.settings_lock_all))
+        }
         availabilityText(state)?.let {
             Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -157,6 +194,14 @@ fun SettingsContent(
             Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         }
     }
+}
+
+private fun relockLabel(delay: RelockDelay): Int = when (delay) {
+    RelockDelay.IMMEDIATELY -> R.string.relock_immediately
+    RelockDelay.AFTER_30_SECONDS -> R.string.relock_30s
+    RelockDelay.AFTER_1_MINUTE -> R.string.relock_1m
+    RelockDelay.AFTER_5_MINUTES -> R.string.relock_5m
+    RelockDelay.ON_SCREEN_OFF -> R.string.relock_screen_off
 }
 
 private fun availabilityText(state: SettingsUiState): Int? =
@@ -173,5 +218,6 @@ private fun messageText(message: SettingsMessage?): Int? = when (message) {
     null -> null
     SettingsMessage.FingerprintEnabled -> R.string.settings_fp_enabled
     SettingsMessage.FingerprintDisabled -> R.string.settings_fp_disabled
+    SettingsMessage.AllLocked -> R.string.settings_all_locked
     is SettingsMessage.Fingerprint -> fingerprintMessageRes(message.message) ?: R.string.settings_enroll_failed
 }

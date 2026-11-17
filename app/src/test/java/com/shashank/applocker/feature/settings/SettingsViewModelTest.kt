@@ -14,6 +14,7 @@ import com.shashank.applocker.security.FingerprintRig
 import com.shashank.applocker.security.LockoutManager
 import com.shashank.applocker.security.LockoutRig
 import com.shashank.applocker.security.PinAuthenticator
+import com.shashank.applocker.security.UnlockSessionManager
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,12 +28,27 @@ class SettingsViewModelTest {
     private val lock = LockoutRig()
     private val pins = FakePinRepository()
     private val fp = FingerprintRig(fingerprintEnabled = false)
+    private val sessions = UnlockSessionManager(lock.clock)
     // Lazy: the ViewModel starts coroutines in init, after MainDispatcherRule has run.
     private val vm by lazy {
-        SettingsViewModel(fp.settings, PinAuthenticator(pins, LockoutManager(lock.repo, lock.clock, lock.credentials)), fp.auth)
+        SettingsViewModel(fp.settings, PinAuthenticator(pins, LockoutManager(lock.repo, lock.clock, lock.credentials)), fp.auth, sessions)
     }
 
     private fun typePin(pin: String) = pin.forEach { vm.onEvent(SettingsEvent.PinDigit(it)) }
+
+    @Test fun relockDelayIsSavedAndReflected() {
+        vm.onEvent(SettingsEvent.SetRelockDelay(com.shashank.applocker.domain.model.RelockDelay.AFTER_5_MINUTES))
+        assertEquals(com.shashank.applocker.domain.model.RelockDelay.AFTER_5_MINUTES, fp.settings.state.value.relockDelay)
+        assertEquals(com.shashank.applocker.domain.model.RelockDelay.AFTER_5_MINUTES, vm.state.value.relockDelay)
+    }
+
+    @Test fun lockAllNowClearsEveryUnlock() {
+        sessions.onForeground("a")
+        sessions.onUnlocked("a")
+        vm.onEvent(SettingsEvent.LockAllNow)
+        assertTrue(sessions.requiresUnlock("a", com.shashank.applocker.domain.model.RelockDelay.ON_SCREEN_OFF))
+        assertEquals(SettingsMessage.AllLocked, vm.state.value.message)
+    }
 
     @Test fun startsOffAndReportsAvailability() {
         assertFalse(vm.state.value.fingerprintEnabled)

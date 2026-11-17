@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.isToggleable
@@ -171,6 +172,20 @@ class ComposeUiTests {
         assertEquals(listOf<SettingsEvent>(SettingsEvent.ToggleFingerprint(false)), events)
     }
 
+    @Test fun relockOptionsAreListedAndSelectable() {
+        val events = mutableListOf<SettingsEvent>()
+        compose.setContent { AppLockerTheme { SettingsContent(SettingsUiState(availability = BiometricAvailability.AVAILABLE), { events += it }) } }
+        compose.onNodeWithText("After 1 minute").performScrollTo().performClick()
+        assertEquals(SettingsEvent.SetRelockDelay(com.shashank.applocker.domain.model.RelockDelay.AFTER_1_MINUTE), events.single())
+    }
+
+    @Test fun lockAllButtonSendsEvent() {
+        val events = mutableListOf<SettingsEvent>()
+        compose.setContent { AppLockerTheme { SettingsContent(SettingsUiState(availability = BiometricAvailability.AVAILABLE), { events += it }) } }
+        compose.onNodeWithText("Lock all apps now").performScrollTo().performClick()
+        assertEquals(listOf<SettingsEvent>(SettingsEvent.LockAllNow), events)
+    }
+
     @Test fun noHardwareDisablesSwitchAndExplains() {
         compose.setContent {
             AppLockerTheme { SettingsContent(SettingsUiState(availability = BiometricAvailability.NO_HARDWARE), {}) }
@@ -269,6 +284,44 @@ class ComposeUiTests {
     @Test fun unavailableAppIsExplainedAndOnlyRemovable() {
         appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, items = listOf(item("gone", "gone", selected = true, available = false))))
         compose.onNodeWithText("Not available. It may be disabled or uninstalled.").assertExists()
+    }
+
+    // --- Protection ---
+
+    private fun protection(
+        status: com.shashank.applocker.feature.protection.ProtectionStatus = com.shashank.applocker.feature.protection.ProtectionStatus.OFF,
+        restricted: Boolean = false,
+        onSettings: () -> Unit = {},
+        onInfo: () -> Unit = {},
+    ) = compose.setContent {
+        AppLockerTheme {
+            com.shashank.applocker.feature.protection.ProtectionContent(
+                com.shashank.applocker.feature.protection.ProtectionUiState(status), restricted, onSettings, onInfo,
+            )
+        }
+    }
+
+    @Test fun protectionShowsDisclosureAndOpensSettings() {
+        var opened = 0
+        protection(onSettings = { opened++ })
+        compose.onNodeWithText("Protection is off").assertExists()
+        compose.onNode(hasText("does not read anything on your screen", substring = true)).assertExists()
+        compose.onNodeWithText("Open Accessibility settings").performClick()
+        assertEquals(1, opened)
+        compose.onNodeWithText("Open App info").assertDoesNotExist()
+    }
+
+    @Test fun restrictedSettingsHelpShowsWhenOffAndApplicable() {
+        var info = 0
+        protection(restricted = true, onInfo = { info++ })
+        compose.onNodeWithText("Open App info").performScrollTo().performClick()
+        assertEquals(1, info)
+    }
+
+    @Test fun protectionOnHidesRestrictedHelp() {
+        protection(com.shashank.applocker.feature.protection.ProtectionStatus.ON, restricted = true)
+        compose.onNodeWithText("Protection is on").assertExists()
+        compose.onNodeWithText("Open App info").assertDoesNotExist()
     }
 
     @Test fun showSystemAppsSwitchSendsEvent() {

@@ -8,11 +8,12 @@ sealed class Route(val path: String) {
     data object BiometricUnlock : Route("biometric_unlock")
     data object AppSelection : Route("app_selection")
     data object Settings : Route("settings")
+    data object Protection : Route("protection")
     data object AppLock : Route("app_lock")
 
     companion object {
         val all: List<Route> = listOf(
-            Onboarding, PinSetup, PinUnlock, BiometricUnlock, AppSelection, Settings, AppLock
+            Onboarding, PinSetup, PinUnlock, BiometricUnlock, AppSelection, Settings, Protection, AppLock
         )
     }
 }

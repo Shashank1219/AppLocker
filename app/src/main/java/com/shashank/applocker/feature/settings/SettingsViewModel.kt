@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shashank.applocker.domain.model.AttemptResult
 import com.shashank.applocker.domain.model.LockoutStatus
+import com.shashank.applocker.domain.model.RelockDelay
 import com.shashank.applocker.domain.model.PIN_LENGTH
 import com.shashank.applocker.domain.repository.SettingsRepository
 import com.shashank.applocker.security.BiometricAvailability
@@ -12,6 +13,7 @@ import com.shashank.applocker.security.FingerprintBegin
 import com.shashank.applocker.security.FingerprintEnableResult
 import com.shashank.applocker.security.FingerprintMessage
 import com.shashank.applocker.security.PinAuthenticator
+import com.shashank.applocker.security.UnlockSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.crypto.Cipher
 import javax.inject.Inject
@@ -37,11 +39,13 @@ data class PinConfirmState(
 sealed interface SettingsMessage {
     data object FingerprintEnabled : SettingsMessage
     data object FingerprintDisabled : SettingsMessage
+    data object AllLocked : SettingsMessage
     data class Fingerprint(val message: FingerprintMessage) : SettingsMessage
 }
 
 data class SettingsUiState(
     val fingerprintEnabled: Boolean = false,
+    val relockDelay: RelockDelay = RelockDelay.DEFAULT,
     val availability: BiometricAvailability = BiometricAvailability.UNSUPPORTED,
     val pinConfirm: PinConfirmState? = null,
     val message: SettingsMessage? = null,
@@ -57,6 +61,8 @@ sealed interface SettingsEvent {
     data object PinBackspace : SettingsEvent
     data object CancelPinConfirm : SettingsEvent
     data object Refresh : SettingsEvent
+    data class SetRelockDelay(val delay: RelockDelay) : SettingsEvent
+    data object LockAllNow : SettingsEvent
 
     /** The enable prompt authenticated with the Keystore-authorised [cipher]. */
     data class EnrollmentAuthenticated(val cipher: Cipher) : SettingsEvent
@@ -78,6 +84,7 @@ class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val authenticator: PinAuthenticator,
     private val fingerprint: FingerprintAuth,
+    private val sessions: UnlockSessionManager,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -87,7 +94,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         settings.settings
-            .onEach { s -> _state.update { it.copy(fingerprintEnabled = s.fingerprintEnabled) } }
+            .onEach { s -> _state.update { it.copy(fingerprintEnabled = s.fingerprintEnabled, relockDelay = s.relockDelay) } }
             .launchIn(viewModelScope)
         refresh()
     }
@@ -102,6 +109,11 @@ class SettingsViewModel @Inject constructor(
             }
             SettingsEvent.CancelPinConfirm -> _state.update { it.copy(pinConfirm = null) }
             SettingsEvent.Refresh -> refresh()
+            is SettingsEvent.SetRelockDelay -> viewModelScope.launch { settings.setRelockDelay(event.delay) }
+            SettingsEvent.LockAllNow -> {
+                sessions.lockAll()
+                _state.update { it.copy(message = SettingsMessage.AllLocked) }
+            }
             is SettingsEvent.EnrollmentAuthenticated -> completeEnable(event.cipher)
             is SettingsEvent.EnrollmentError -> enrollmentError(event.errorCode)
         }
