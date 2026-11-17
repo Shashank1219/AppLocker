@@ -42,17 +42,17 @@ fun AppNavHost(
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
         composable(Route.Onboarding.path) { OnboardingScreen() }
         composable(Route.PinSetup.path) {
-            // Temporary wiring: later stages route onward to the remaining setup steps.
+            // Temporary wiring: until the main screen exists, a successful PIN lands on Settings.
             PinSetupScreen(onCompleted = {
                 onUnlocked()
-                navController.goToAndClear(Route.AppSelection)
+                navController.goToAndClear(Route.Settings)
             })
         }
         composable(Route.PinUnlock.path) {
             PinUnlockScreen(
                 onUnlocked = {
                     onUnlocked()
-                    navController.goToAndClear(Route.AppSelection)
+                    navController.goToAndClear(Route.Settings)
                 },
                 // Device credential confirmed: let the user choose a new PIN.
                 onRecoveryAuthorized = { navController.goToAndClear(Route.PinSetup) },

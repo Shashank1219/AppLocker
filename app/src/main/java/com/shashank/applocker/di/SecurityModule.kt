@@ -2,7 +2,9 @@ package com.shashank.applocker.di
 
 import com.shashank.applocker.domain.repository.LockoutRepository
 import com.shashank.applocker.domain.repository.PinRepository
+import com.shashank.applocker.security.AndroidBiometricCapabilitySource
 import com.shashank.applocker.security.AndroidBiometricKeyStore
+import com.shashank.applocker.security.BiometricCapabilitySource
 import com.shashank.applocker.security.BiometricKeyManager
 import com.shashank.applocker.security.BiometricKeyStore
 import com.shashank.applocker.security.CalibratedIterationPolicy
@@ -46,6 +48,7 @@ abstract class SecurityBindingsModule {
     @Binds abstract fun bindBiometricKeyStore(impl: AndroidBiometricKeyStore): BiometricKeyStore
     @Binds abstract fun bindBiometricKeyManager(impl: DefaultBiometricKeyManager): BiometricKeyManager
     @Binds abstract fun bindTokenGenerator(impl: SecureRandomTokenGenerator): TokenGenerator
+    @Binds abstract fun bindBiometricCapabilities(impl: AndroidBiometricCapabilitySource): BiometricCapabilitySource
     @Binds abstract fun bindElapsedClock(impl: SystemElapsedClock): ElapsedClock
     @Binds abstract fun bindCredentialAvailability(impl: KeyguardCredentialAvailability): DeviceCredentialAvailability
 }
