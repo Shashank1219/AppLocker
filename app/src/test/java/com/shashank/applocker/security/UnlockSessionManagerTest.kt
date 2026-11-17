@@ -14,6 +14,7 @@ class UnlockSessionManagerTest {
     private fun unlockInFront(pkg: String) {
         sessions.onForeground(pkg)
         sessions.onUnlocked(pkg)
+        clock.now += 3_001 // past the post-unlock grace period
     }
 
     private fun leave(to: String = "launcher") = sessions.onForeground(to)
@@ -93,6 +94,22 @@ class UnlockSessionManagerTest {
         sessions.onUnlocked("a")
         sessions.onForeground("a") // the app is revealed
         assertFalse(sessions.requiresUnlock("a", RelockDelay.IMMEDIATELY))
+    }
+
+    @Test fun leavingAndReturningInsideTheGraceWindowDoesNotRelock() {
+        sessions.onForeground("a")
+        sessions.onUnlocked("a")
+        sessions.onForeground("x") // stray event while the lock screen closes
+        sessions.onForeground("a")
+        assertFalse(sessions.requiresUnlock("a", RelockDelay.IMMEDIATELY))
+    }
+
+    @Test fun graceWindowEndsAndThenLeavingRelocks() {
+        sessions.onForeground("a")
+        sessions.onUnlocked("a")
+        secondsLater(4)
+        sessions.onForeground("x")
+        assertTrue(sessions.requiresUnlock("a", RelockDelay.IMMEDIATELY))
     }
 
     @Test fun unlockingMarksThePreviousFrontAppAsLeft() {

@@ -133,8 +133,8 @@ class DefaultBiometricKeyManager @Inject constructor(
 
     /** Tries both deletions even if the first fails. */
     private fun removeAllQuietly() {
-        try { keyStore.deleteKey() } catch (e: Exception) { Unit }
-        try { secretStore.remove(KEY_RECORD) } catch (e: Exception) { Unit }
+        runCatching { keyStore.deleteKey() }
+        runCatching { secretStore.remove(KEY_RECORD) }
     }
 
     private suspend fun <T> guarded(block: () -> T): T =

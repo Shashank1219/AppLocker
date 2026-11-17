@@ -18,9 +18,13 @@ import javax.inject.Singleton
  */
 @Singleton
 class UnlockSessionManager @Inject constructor(private val clock: ElapsedClock) {
-    private class Session(var leftAtMs: Long?)
+    private class Session(var leftAtMs: Long?, val grantedAtMs: Long)
 
     private val sessions = HashMap<String, Session>()
+
+    private companion object {
+        const val UNLOCK_GRACE_MS = 3_000L
+    }
 
     /** The last real app seen in front. Null until one is seen. Never holds ignored windows. */
     @get:Synchronized
@@ -39,6 +43,12 @@ class UnlockSessionManager @Inject constructor(private val clock: ElapsedClock) 
     @Synchronized
     fun requiresUnlock(packageName: String, delay: RelockDelay): Boolean {
         val session = sessions[packageName] ?: return true
+        // Right after a successful unlock the system sends a burst of window events while the
+        // lock screen closes and the app is revealed. They must not count as the user leaving.
+        if (clock.elapsedRealtimeMs() - session.grantedAtMs < UNLOCK_GRACE_MS) {
+            session.leftAtMs = null
+            return false
+        }
         val leftAt = session.leftAtMs ?: return false // still in front
         val seconds = delay.seconds
         if (seconds == null) { // only screen off relocks
@@ -61,7 +71,7 @@ class UnlockSessionManager @Inject constructor(private val clock: ElapsedClock) 
     @Synchronized
     fun onUnlocked(packageName: String) {
         onForeground(packageName)
-        sessions[packageName] = Session(null)
+        sessions[packageName] = Session(null, clock.elapsedRealtimeMs())
     }
 
     /** Screen off, "Lock all now", or the service going away. */

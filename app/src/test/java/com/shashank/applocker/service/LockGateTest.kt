@@ -14,6 +14,11 @@ class LockGateTest {
     private val protectedSet = setOf("bank", "mail")
     private var delay = RelockDelay.IMMEDIATELY
 
+    private fun unlock(pkg: String) {
+        sessions.onUnlocked(pkg)
+        clock.now += 3_001 // past the post-unlock grace period
+    }
+
     private fun open(pkg: String?) = gate.onWindowChanged(pkg, pkg in protectedSet, delay)
 
     @Test fun protectedAppShowsLockUnprotectedDoesNot() {
@@ -22,21 +27,21 @@ class LockGateTest {
     }
 
     @Test fun ignoredWindowsNeverCountAsLeavingOrLocking() {
-        sessions.onForeground("bank"); sessions.onUnlocked("bank")
+        sessions.onForeground("bank"); unlock("bank")
         listOf("me", "kb", "ui", null, "").forEach { assertEquals(ForegroundDecision.None, open(it)) }
         assertEquals(ForegroundDecision.None, open("bank")) // shade, keyboard, lock screen: still unlocked
     }
 
     @Test fun afterUnlockTheAppContinuesAndLeavingRelocksImmediately() {
         assertEquals(ForegroundDecision.ShowLock, open("bank"))
-        sessions.onUnlocked("bank") // lock screen succeeded
+        unlock("bank") // lock screen succeeded
         assertEquals(ForegroundDecision.None, open("bank"))
         open("launcher") // Home
         assertEquals(ForegroundDecision.ShowLock, open("bank"))
     }
 
     @Test fun goingViaRecentsOrAnotherAppRelocks() {
-        open("bank"); sessions.onUnlocked("bank")
+        open("bank"); unlock("bank")
         open("recents-launcher")
         assertEquals(ForegroundDecision.ShowLock, open("bank"))
     }
@@ -49,7 +54,7 @@ class LockGateTest {
 
     @Test fun screenOffRelocksAndNextLookShowsTheLock() {
         delay = RelockDelay.ON_SCREEN_OFF
-        open("bank"); sessions.onUnlocked("bank")
+        open("bank"); unlock("bank")
         open("launcher"); open("bank")
         assertEquals(ForegroundDecision.None, open("bank")) // still within "until screen off"
         gate.onScreenOff()
@@ -59,7 +64,7 @@ class LockGateTest {
 
     @Test fun timedDelayHonoursTheWindow() {
         delay = RelockDelay.AFTER_1_MINUTE
-        open("bank"); sessions.onUnlocked("bank")
+        open("bank"); unlock("bank")
         open("launcher")
         clock.now += 30_000
         assertEquals(ForegroundDecision.None, open("bank"))
@@ -69,12 +74,12 @@ class LockGateTest {
     }
 
     @Test fun twoProtectedAppsAreIndependent() {
-        open("bank"); sessions.onUnlocked("bank")
+        open("bank"); unlock("bank")
         assertEquals(ForegroundDecision.ShowLock, open("mail"))
     }
 
     @Test fun resetForgetsAllUnlocks() {
-        open("bank"); sessions.onUnlocked("bank")
+        open("bank"); unlock("bank")
         gate.reset()
         assertEquals(ForegroundDecision.ShowLock, open("bank"))
     }

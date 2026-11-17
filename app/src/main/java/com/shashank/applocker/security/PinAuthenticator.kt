@@ -46,8 +46,8 @@ class PinAuthenticator @Inject constructor(
                     // If the reset fails the user is still in; the old count is the safe side.
                     try {
                         lockout.recordSuccess()
-                    } catch (e: SecretStoreException) {
-                        Unit
+                    } catch (_: SecretStoreException) {
+                        // keep the old count
                     }
                     AttemptResult.Success
                 }
