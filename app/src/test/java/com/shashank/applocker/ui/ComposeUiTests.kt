@@ -12,6 +12,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
@@ -199,5 +201,80 @@ class ComposeUiTests {
         compose.onNodeWithText("4").performClick()
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(listOf(SettingsEvent.PinDigit('4'), SettingsEvent.CancelPinConfirm), events)
+    }
+
+    // --- App selection ---
+
+    private fun item(pkg: String, label: String, selected: Boolean = false, role: com.shashank.applocker.domain.apps.CriticalRole? = null, available: Boolean = true) =
+        com.shashank.applocker.domain.apps.AppItem(pkg, label, false, selected, role, available)
+
+    private fun appsScreen(state: com.shashank.applocker.feature.apps.AppSelectionUiState, events: MutableList<com.shashank.applocker.feature.apps.AppSelectionEvent> = mutableListOf()) {
+        compose.setContent {
+            AppLockerTheme { com.shashank.applocker.feature.apps.AppSelectionContent(state, { events += it }) }
+        }
+    }
+
+    @Test fun appRowShowsLabelAndPackageAndTogglesSelection() {
+        val events = mutableListOf<com.shashank.applocker.feature.apps.AppSelectionEvent>()
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, items = listOf(item("com.x.cam", "Camera"))), events)
+        compose.onNodeWithText("com.x.cam").assertExists()
+        compose.onNodeWithText("Camera").performClick()
+        assertEquals(listOf<com.shashank.applocker.feature.apps.AppSelectionEvent>(com.shashank.applocker.feature.apps.AppSelectionEvent.Toggle("com.x.cam", true)), events)
+    }
+
+    @Test fun selectedAppShowsAsOnAndTogglesOff() {
+        val events = mutableListOf<com.shashank.applocker.feature.apps.AppSelectionEvent>()
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, items = listOf(item("a", "Alpha", selected = true))), events)
+        compose.onAllNodes(isToggleable() and hasText("Alpha")).onFirst().assertIsOn().performClick()
+        assertEquals(com.shashank.applocker.feature.apps.AppSelectionEvent.Toggle("a", false), events.single())
+    }
+
+    @Test fun typingInSearchSendsQuery() {
+        val events = mutableListOf<com.shashank.applocker.feature.apps.AppSelectionEvent>()
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, items = listOf(item("a", "Alpha"))), events)
+        compose.onNodeWithText("Search apps").performTextInput("zo")
+        assertEquals(com.shashank.applocker.feature.apps.AppSelectionEvent.QueryChanged("zo"), events.last())
+    }
+
+    @Test fun emptyListShowsEmptyState() {
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false))
+        compose.onNodeWithText("No apps found.").assertExists()
+    }
+
+    @Test fun emptySearchResultShowsNoMatchState() {
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, query = "zzz"))
+        compose.onNodeWithText("No apps match your search.").assertExists()
+    }
+
+    @Test fun errorStateOffersRetry() {
+        val events = mutableListOf<com.shashank.applocker.feature.apps.AppSelectionEvent>()
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, error = true), events)
+        compose.onNodeWithText("Try again").performClick()
+        assertEquals(listOf<com.shashank.applocker.feature.apps.AppSelectionEvent>(com.shashank.applocker.feature.apps.AppSelectionEvent.Retry), events)
+    }
+
+    @Test fun warningDialogConfirmsOrCancels() {
+        val events = mutableListOf<com.shashank.applocker.feature.apps.AppSelectionEvent>()
+        val warn = item("p", "Phone", role = com.shashank.applocker.domain.apps.CriticalRole.PHONE)
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, items = listOf(warn), warning = warn), events)
+        compose.onNodeWithText("Protect Phone?").assertExists()
+        compose.onNodeWithText("Protect anyway").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        assertEquals(
+            listOf(com.shashank.applocker.feature.apps.AppSelectionEvent.ConfirmWarning, com.shashank.applocker.feature.apps.AppSelectionEvent.DismissWarning),
+            events,
+        )
+    }
+
+    @Test fun unavailableAppIsExplainedAndOnlyRemovable() {
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false, items = listOf(item("gone", "gone", selected = true, available = false))))
+        compose.onNodeWithText("Not available. It may be disabled or uninstalled.").assertExists()
+    }
+
+    @Test fun showSystemAppsSwitchSendsEvent() {
+        val events = mutableListOf<com.shashank.applocker.feature.apps.AppSelectionEvent>()
+        appsScreen(com.shashank.applocker.feature.apps.AppSelectionUiState(loading = false), events)
+        compose.onNodeWithText("Show system apps").performClick()
+        assertEquals(com.shashank.applocker.feature.apps.AppSelectionEvent.ShowSystemApps(true), events.single())
     }
 }

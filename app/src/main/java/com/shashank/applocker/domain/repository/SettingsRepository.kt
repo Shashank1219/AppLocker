@@ -10,4 +10,5 @@ interface SettingsRepository {
     suspend fun setFingerprintEnabled(enabled: Boolean)
     suspend fun setRelockDelay(delay: RelockDelay)
     suspend fun setAccessibilityServiceEnabled(enabled: Boolean)
+    suspend fun setShowSystemApps(show: Boolean)
 }

@@ -59,8 +59,8 @@ fun AppNavHost(
             )
         }
         composable(Route.BiometricUnlock.path) { Gated(isUnlocked) { BiometricUnlockScreen() } }
-        composable(Route.AppSelection.path) { Gated(isUnlocked) { AppSelectionScreen() } }
-        composable(Route.Settings.path) { Gated(isUnlocked) { SettingsScreen() } }
+        composable(Route.AppSelection.path) { Gated(isUnlocked) { AppSelectionScreen(onBack = { navController.popBackStack() }) } }
+        composable(Route.Settings.path) { Gated(isUnlocked) { SettingsScreen(onOpenApps = { navController.navigate(Route.AppSelection.path) }) } }
         composable(Route.AppLock.path) { Gated(isUnlocked) { AppLockScreen() } }
     }
 }

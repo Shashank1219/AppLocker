@@ -30,6 +30,7 @@ class SettingsRepositoryImpl @Inject constructor(
                 fingerprintEnabled = p[FINGERPRINT_ENABLED] ?: false,
                 relockDelay = RelockDelay.fromName(p[RELOCK_DELAY]),
                 accessibilityServiceEnabled = p[ACCESSIBILITY_ENABLED] ?: false,
+                showSystemApps = p[SHOW_SYSTEM_APPS] ?: false,
             )
         }
 
@@ -49,10 +50,15 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[ACCESSIBILITY_ENABLED] = enabled }
     }
 
+    override suspend fun setShowSystemApps(show: Boolean) {
+        dataStore.edit { it[SHOW_SYSTEM_APPS] = show }
+    }
+
     private companion object {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val FINGERPRINT_ENABLED = booleanPreferencesKey("fingerprint_enabled")
         val RELOCK_DELAY = stringPreferencesKey("relock_delay")
+        val SHOW_SYSTEM_APPS = booleanPreferencesKey("show_system_apps")
         val ACCESSIBILITY_ENABLED = booleanPreferencesKey("accessibility_service_enabled")
     }
 }

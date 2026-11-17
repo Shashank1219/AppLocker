@@ -1,5 +1,7 @@
 package com.shashank.applocker.di
 
+import com.shashank.applocker.data.apps.PackageManagerAppsSource
+import com.shashank.applocker.domain.apps.InstalledAppsSource
 import com.shashank.applocker.data.repository.ProtectedAppRepositoryImpl
 import com.shashank.applocker.data.settings.SettingsRepositoryImpl
 import com.shashank.applocker.domain.repository.ProtectedAppRepository
@@ -13,5 +15,6 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
     @Binds abstract fun bindProtectedApps(impl: ProtectedAppRepositoryImpl): ProtectedAppRepository
+    @Binds abstract fun bindInstalledApps(impl: PackageManagerAppsSource): InstalledAppsSource
     @Binds abstract fun bindSettings(impl: SettingsRepositoryImpl): SettingsRepository
 }

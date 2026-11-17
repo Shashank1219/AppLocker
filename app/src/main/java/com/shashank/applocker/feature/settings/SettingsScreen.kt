@@ -1,5 +1,6 @@
 package com.shashank.applocker.feature.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import com.shashank.applocker.ui.components.findActivity
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
+    onOpenApps: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     SecureWindow()
@@ -67,7 +69,7 @@ fun SettingsScreen(
     // The user may enrol a fingerprint in system settings and come back.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(SettingsEvent.Refresh) }
 
-    SettingsContent(state = state, onEvent = viewModel::onEvent, modifier = modifier)
+    SettingsContent(state = state, onEvent = viewModel::onEvent, onOpenApps = onOpenApps, modifier = modifier)
 }
 
 /** Stateless settings UI. */
@@ -76,6 +78,7 @@ fun SettingsContent(
     state: SettingsUiState,
     onEvent: (SettingsEvent) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenApps: () -> Unit = {},
 ) {
     val confirm = state.pinConfirm
     if (confirm != null) {
@@ -113,6 +116,17 @@ fun SettingsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)
+        Column(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onOpenApps),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(stringResource(R.string.settings_open_apps), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.settings_open_apps_summary),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

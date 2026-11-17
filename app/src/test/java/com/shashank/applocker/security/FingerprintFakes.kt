@@ -15,6 +15,7 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
     override suspend fun setFingerprintEnabled(enabled: Boolean) = state.update { it.copy(fingerprintEnabled = enabled) }
     override suspend fun setRelockDelay(delay: RelockDelay) = state.update { it.copy(relockDelay = delay) }
     override suspend fun setAccessibilityServiceEnabled(enabled: Boolean) = state.update { it.copy(accessibilityServiceEnabled = enabled) }
+    override suspend fun setShowSystemApps(show: Boolean) = state.update { it.copy(showSystemApps = show) }
 }
 
 class FakeCapabilities(

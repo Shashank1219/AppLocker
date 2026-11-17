@@ -72,4 +72,11 @@ class SettingsRepositoryTest {
         assertEquals(30L, RelockDelay.AFTER_30_SECONDS.seconds)
         assertEquals(null, RelockDelay.ON_SCREEN_OFF.seconds)
     }
+
+    @Test
+    fun showSystemAppsDefaultsOffAndPersists() = runTest {
+        assertEquals(false, repo.settings.first().showSystemApps)
+        repo.setShowSystemApps(true)
+        assertEquals(true, repo.settings.first().showSystemApps)
+    }
 }

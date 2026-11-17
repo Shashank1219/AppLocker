@@ -55,4 +55,20 @@ class ProtectedAppRepositoryTest : DatabaseTestBase() {
         assertEquals(1200, removed.size)
         repo.observeSelectedPackages().test { assertEquals(emptySet<String>(), awaitItem()) }
     }
+
+    @Test
+    fun selectingTwiceKeepsOneRowAndUnselectingUnknownIsHarmless() = runTest {
+        repo.setSelected("a", true)
+        repo.setSelected("a", true)
+        repo.setSelected("never-added", false)
+        repo.observeSelectedPackages().test { assertEquals(setOf("a"), awaitItem()) }
+    }
+
+    @Test
+    fun reconcileKeepsInstalledAndDropsMissing() = runTest {
+        repo.setSelected("kept", true)
+        repo.setSelected("gone", true)
+        assertEquals(setOf("gone"), repo.reconcile(setOf("kept", "other")))
+        repo.observeSelectedPackages().test { assertEquals(setOf("kept"), awaitItem()) }
+    }
 }
