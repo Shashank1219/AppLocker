@@ -53,11 +53,15 @@ class UnlockSessionManager @Inject constructor(private val clock: ElapsedClock) 
         return false
     }
 
-    /** The user authenticated for [packageName]. */
+    /**
+     * The user authenticated for [packageName]. The lock screen is shown over that app and
+     * finishing it reveals the app, so it counts as in front from now on, even if some other
+     * window event (an OEM fingerprint dialog, say) was seen while the lock screen was up.
+     */
     @Synchronized
     fun onUnlocked(packageName: String) {
-        val inFront = packageName == foregroundPackage
-        sessions[packageName] = Session(if (inFront) null else clock.elapsedRealtimeMs())
+        onForeground(packageName)
+        sessions[packageName] = Session(null)
     }
 
     /** Screen off, "Lock all now", or the service going away. */

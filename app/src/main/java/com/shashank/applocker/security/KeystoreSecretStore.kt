@@ -56,6 +56,13 @@ class KeystoreSecretStore @Inject constructor(
         check(prefs.edit().remove(key).commit())
     }
 
+    @Synchronized
+    override fun clear() = guard {
+        check(prefs.edit().clear().commit())
+        val store = keyStore()
+        if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS)
+    }
+
     private fun keyStore(): KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
 
     private fun existingKey(): SecretKey? = keyStore().getKey(KEY_ALIAS, null) as SecretKey?

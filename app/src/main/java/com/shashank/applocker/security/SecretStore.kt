@@ -12,6 +12,9 @@ interface SecretStore {
     fun get(key: String): ByteArray?
 
     fun remove(key: String)
+
+    /** Removes every stored secret and the Keystore key that protected them. @throws SecretStoreException on failure. */
+    fun clear()
 }
 
 /** Any Keystore, crypto or storage failure. Deliberately carries no message or cause details. */

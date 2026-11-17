@@ -28,6 +28,8 @@ class ProtectedAppRepositoryImpl @Inject constructor(
     override suspend fun setLockActive(packageName: String, active: Boolean) =
         dao.setLockActive(packageName, active)
 
+    override suspend fun clearAll() = dao.deleteEverything()
+
     override suspend fun reconcile(installedPackages: Set<String>): Set<String> =
         db.withTransaction {
             val stale = dao.getSelected().filterNot { it in installedPackages }

@@ -13,6 +13,8 @@ import com.shashank.applocker.security.DeviceCredentialAvailability
 import com.shashank.applocker.security.ElapsedClock
 import com.shashank.applocker.security.IterationPolicy
 import com.shashank.applocker.security.KeyguardCredentialAvailability
+import com.shashank.applocker.security.AppDataWiper
+import com.shashank.applocker.security.DefaultAppDataWiper
 import com.shashank.applocker.security.KeystoreSecretStore
 import com.shashank.applocker.security.Pbkdf2PinHasher
 import com.shashank.applocker.security.PinHasher
@@ -40,6 +42,7 @@ annotation class DefaultDispatcher
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class SecurityBindingsModule {
+    @Binds abstract fun bindAppDataWiper(impl: DefaultAppDataWiper): AppDataWiper
     @Binds abstract fun bindSecretStore(impl: KeystoreSecretStore): SecretStore
     @Binds abstract fun bindPinHasher(impl: Pbkdf2PinHasher): PinHasher
     @Binds abstract fun bindIterationPolicy(impl: CalibratedIterationPolicy): IterationPolicy

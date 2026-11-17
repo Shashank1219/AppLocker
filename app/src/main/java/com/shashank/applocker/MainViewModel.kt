@@ -49,6 +49,12 @@ class MainViewModel @Inject constructor(
 
     fun onUnlocked() = session.unlock()
 
+    /** All data was erased: reload so the app starts again at PIN setup, with the session locked. */
+    fun onDataWiped() {
+        load()
+        session.lock()
+    }
+
     /** Called when the app leaves the foreground (not for rotation). */
     fun onLeftForeground() = session.lock()
 }

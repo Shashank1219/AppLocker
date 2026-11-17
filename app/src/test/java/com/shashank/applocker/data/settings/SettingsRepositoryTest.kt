@@ -42,15 +42,22 @@ class SettingsRepositoryTest {
     fun settersPersistAndEmit() = runTest {
         repo.settings.test {
             assertEquals(AppSettings(), awaitItem())
-            repo.setOnboardingCompleted(true)
-            assertEquals(true, awaitItem().onboardingCompleted)
             repo.setFingerprintEnabled(true)
             assertEquals(true, awaitItem().fingerprintEnabled)
             repo.setRelockDelay(RelockDelay.AFTER_5_MINUTES)
             assertEquals(RelockDelay.AFTER_5_MINUTES, awaitItem().relockDelay)
-            repo.setAccessibilityServiceEnabled(true)
-            assertEquals(AppSettings(true, true, RelockDelay.AFTER_5_MINUTES, true), awaitItem())
+            repo.setShowSystemApps(true)
+            assertEquals(AppSettings(true, RelockDelay.AFTER_5_MINUTES, true), awaitItem())
         }
+    }
+
+    @Test
+    fun clearRestoresEveryDefault() = runTest {
+        repo.setFingerprintEnabled(true)
+        repo.setRelockDelay(RelockDelay.AFTER_5_MINUTES)
+        repo.setShowSystemApps(true)
+        repo.clear()
+        assertEquals(AppSettings(), repo.settings.first())
     }
 
     @Test

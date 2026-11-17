@@ -65,6 +65,14 @@ class ProtectedAppRepositoryTest : DatabaseTestBase() {
     }
 
     @Test
+    fun clearAllRemovesEverySelection() = runTest {
+        repo.setSelected("a", true)
+        repo.setSelected("b", true)
+        repo.clearAll()
+        repo.observeSelectedPackages().test { assertEquals(emptySet<String>(), awaitItem()) }
+    }
+
+    @Test
     fun reconcileKeepsInstalledAndDropsMissing() = runTest {
         repo.setSelected("kept", true)
         repo.setSelected("gone", true)

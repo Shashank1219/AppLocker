@@ -29,6 +29,9 @@ interface ProtectedAppDao {
     @Query("UPDATE protected_apps SET lockActive = :active WHERE packageName = :packageName")
     suspend fun setLockActive(packageName: String, active: Boolean)
 
+    @Query("DELETE FROM protected_apps")
+    suspend fun deleteEverything()
+
     @Query("DELETE FROM protected_apps WHERE packageName IN (:packageNames)")
     suspend fun deleteAll(packageNames: List<String>)
 }

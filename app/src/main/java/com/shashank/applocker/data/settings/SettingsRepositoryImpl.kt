@@ -26,17 +26,11 @@ class SettingsRepositoryImpl @Inject constructor(
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { p ->
             AppSettings(
-                onboardingCompleted = p[ONBOARDING_COMPLETED] ?: false,
                 fingerprintEnabled = p[FINGERPRINT_ENABLED] ?: false,
                 relockDelay = RelockDelay.fromName(p[RELOCK_DELAY]),
-                accessibilityServiceEnabled = p[ACCESSIBILITY_ENABLED] ?: false,
                 showSystemApps = p[SHOW_SYSTEM_APPS] ?: false,
             )
         }
-
-    override suspend fun setOnboardingCompleted(completed: Boolean) {
-        dataStore.edit { it[ONBOARDING_COMPLETED] = completed }
-    }
 
     override suspend fun setFingerprintEnabled(enabled: Boolean) {
         dataStore.edit { it[FINGERPRINT_ENABLED] = enabled }
@@ -46,19 +40,17 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[RELOCK_DELAY] = delay.name }
     }
 
-    override suspend fun setAccessibilityServiceEnabled(enabled: Boolean) {
-        dataStore.edit { it[ACCESSIBILITY_ENABLED] = enabled }
-    }
-
     override suspend fun setShowSystemApps(show: Boolean) {
         dataStore.edit { it[SHOW_SYSTEM_APPS] = show }
     }
 
+    override suspend fun clear() {
+        dataStore.edit { it.clear() }
+    }
+
     private companion object {
-        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val FINGERPRINT_ENABLED = booleanPreferencesKey("fingerprint_enabled")
         val RELOCK_DELAY = stringPreferencesKey("relock_delay")
         val SHOW_SYSTEM_APPS = booleanPreferencesKey("show_system_apps")
-        val ACCESSIBILITY_ENABLED = booleanPreferencesKey("accessibility_service_enabled")
     }
 }

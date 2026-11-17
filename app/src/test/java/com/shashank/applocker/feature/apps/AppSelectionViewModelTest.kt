@@ -31,6 +31,7 @@ class FakeProtectedApps(initial: Set<String> = emptySet()) : ProtectedAppReposit
         this.selected.value = if (selected) this.selected.value + packageName else this.selected.value - packageName
     }
     override suspend fun setLockActive(packageName: String, active: Boolean) = Unit
+    override suspend fun clearAll() { selected.value = emptySet() }
     override suspend fun reconcile(installedPackages: Set<String>): Set<String> {
         reconciledWith = installedPackages
         val stale = selected.value - installedPackages

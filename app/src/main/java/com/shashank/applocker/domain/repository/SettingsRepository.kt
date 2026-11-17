@@ -6,9 +6,10 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     val settings: Flow<AppSettings>
-    suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setFingerprintEnabled(enabled: Boolean)
     suspend fun setRelockDelay(delay: RelockDelay)
-    suspend fun setAccessibilityServiceEnabled(enabled: Boolean)
     suspend fun setShowSystemApps(show: Boolean)
+
+    /** Resets every setting to its default. Used when wiping app data. */
+    suspend fun clear()
 }

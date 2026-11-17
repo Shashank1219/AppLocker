@@ -10,16 +10,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.shashank.applocker.feature.apps.AppSelectionScreen
-import com.shashank.applocker.feature.biometric.BiometricUnlockScreen
-import com.shashank.applocker.feature.lock.AppLockScreen
-import com.shashank.applocker.feature.onboarding.OnboardingScreen
+import com.shashank.applocker.feature.pin.ChangePinScreen
 import com.shashank.applocker.feature.pin.PinSetupScreen
 import com.shashank.applocker.feature.pin.PinUnlockScreen
 import com.shashank.applocker.feature.protection.ProtectionScreen
 import com.shashank.applocker.feature.settings.SettingsScreen
 
 /** Screens reachable without the PIN. Everything else is gated on [isUnlocked]. */
-private val openRoutes = setOf(Route.Onboarding.path, Route.PinSetup.path, Route.PinUnlock.path)
+private val openRoutes = setOf(Route.PinSetup.path, Route.PinUnlock.path)
 
 /**
  * Navigation state can be restored after process death or rotation, so it is never trusted:
@@ -31,6 +29,7 @@ fun AppNavHost(
     startDestination: String,
     isUnlocked: Boolean,
     onUnlocked: () -> Unit,
+    onDataWiped: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
@@ -41,9 +40,7 @@ fun AppNavHost(
         }
     }
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
-        composable(Route.Onboarding.path) { OnboardingScreen() }
         composable(Route.PinSetup.path) {
-            // Temporary wiring: until the main screen exists, a successful PIN lands on Settings.
             PinSetupScreen(onCompleted = {
                 onUnlocked()
                 navController.goToAndClear(Route.Settings)
@@ -59,13 +56,19 @@ fun AppNavHost(
                 onRecoveryAuthorized = { navController.goToAndClear(Route.PinSetup) },
             )
         }
-        composable(Route.BiometricUnlock.path) { Gated(isUnlocked) { BiometricUnlockScreen() } }
-        composable(Route.AppSelection.path) { Gated(isUnlocked) { AppSelectionScreen(onBack = { navController.popBackStack() }) } }
-        composable(Route.Settings.path) { Gated(isUnlocked) { SettingsScreen(onOpenApps = { navController.navigate(Route.AppSelection.path) },
+        composable(Route.Settings.path) {
+            Gated(isUnlocked) {
+                SettingsScreen(
+                    onOpenApps = { navController.navigate(Route.AppSelection.path) },
                     onOpenProtection = { navController.navigate(Route.Protection.path) },
-                ) } }
+                    onChangePin = { navController.navigate(Route.ChangePin.path) },
+                    onWiped = onDataWiped,
+                )
+            }
+        }
+        composable(Route.AppSelection.path) { Gated(isUnlocked) { AppSelectionScreen(onBack = { navController.popBackStack() }) } }
         composable(Route.Protection.path) { Gated(isUnlocked) { ProtectionScreen(onBack = { navController.popBackStack() }) } }
-        composable(Route.AppLock.path) { Gated(isUnlocked) { AppLockScreen() } }
+        composable(Route.ChangePin.path) { Gated(isUnlocked) { ChangePinScreen(onClose = { navController.popBackStack() }) } }
     }
 }
 

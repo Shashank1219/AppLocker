@@ -17,6 +17,9 @@ interface ProtectedAppRepository {
     /** Pauses or resumes the lock for an already selected package. No-op if not selected. */
     suspend fun setLockActive(packageName: String, active: Boolean)
 
+    /** Removes every selection. Used when wiping app data. */
+    suspend fun clearAll()
+
     /** Drops selected packages that are not in [installedPackages]. Returns the removed names. */
     suspend fun reconcile(installedPackages: Set<String>): Set<String>
 }

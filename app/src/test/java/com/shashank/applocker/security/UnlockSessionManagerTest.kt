@@ -87,10 +87,18 @@ class UnlockSessionManagerTest {
         assertTrue(sessions.requiresUnlock("b", RelockDelay.ON_SCREEN_OFF))
     }
 
-    @Test fun anAppUnlockedWhileNotInFrontStartsItsTimerImmediately() {
-        sessions.onForeground("launcher")
+    @Test fun strayWindowEventsWhileTheLockScreenWasUpDoNotRelockTheNewUnlock() {
+        sessions.onForeground("a")
+        sessions.onForeground("oem-biometric-ui") // seen during the fingerprint prompt
         sessions.onUnlocked("a")
-        assertTrue(sessions.requiresUnlock("a", RelockDelay.IMMEDIATELY))
+        sessions.onForeground("a") // the app is revealed
+        assertFalse(sessions.requiresUnlock("a", RelockDelay.IMMEDIATELY))
+    }
+
+    @Test fun unlockingMarksThePreviousFrontAppAsLeft() {
+        unlockInFront("x")
+        sessions.onUnlocked("a")
+        assertTrue(sessions.requiresUnlock("x", RelockDelay.IMMEDIATELY))
     }
 
     @Test fun switchingBetweenAppsOnlyStartsTheTimerForTheOneLeft() {

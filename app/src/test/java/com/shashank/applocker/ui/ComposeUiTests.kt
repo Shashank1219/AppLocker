@@ -157,7 +157,7 @@ class ComposeUiTests {
                 SettingsContent(SettingsUiState(availability = BiometricAvailability.AVAILABLE), { events += it })
             }
         }
-        compose.onNode(isToggleable()).assertIsOff().assertIsEnabled().performClick()
+        compose.onNode(isToggleable()).performScrollTo().assertIsOff().assertIsEnabled().performClick()
         assertEquals(listOf<SettingsEvent>(SettingsEvent.ToggleFingerprint(true)), events)
     }
 
@@ -168,7 +168,7 @@ class ComposeUiTests {
                 SettingsContent(SettingsUiState(fingerprintEnabled = true, availability = BiometricAvailability.AVAILABLE), { events += it })
             }
         }
-        compose.onNode(isToggleable()).assertIsOn().performClick()
+        compose.onNode(isToggleable()).performScrollTo().assertIsOn().performClick()
         assertEquals(listOf<SettingsEvent>(SettingsEvent.ToggleFingerprint(false)), events)
     }
 
@@ -184,6 +184,92 @@ class ComposeUiTests {
         compose.setContent { AppLockerTheme { SettingsContent(SettingsUiState(availability = BiometricAvailability.AVAILABLE), { events += it }) } }
         compose.onNodeWithText("Lock all apps now").performScrollTo().performClick()
         assertEquals(listOf<SettingsEvent>(SettingsEvent.LockAllNow), events)
+    }
+
+    @Test fun settingsShowsStatusPrivacyAboutAndEveryEntryPoint() {
+        var apps = 0
+        var protection = 0
+        var change = 0
+        compose.setContent {
+            AppLockerTheme {
+                SettingsContent(
+                    SettingsUiState(availability = BiometricAvailability.AVAILABLE), {},
+                    protectionStatus = com.shashank.applocker.feature.protection.ProtectionStatus.ON,
+                    versionLabel = "Version 1.0 (1)",
+                    onOpenApps = { apps++ }, onOpenProtection = { protection++ }, onChangePin = { change++ },
+                )
+            }
+        }
+        compose.onNodeWithText("Protection is on").performScrollTo().performClick()
+        compose.onNodeWithText("Protected apps").performScrollTo().performClick()
+        compose.onNodeWithText("Change PIN").performScrollTo().performClick()
+        assertEquals(listOf(1, 1, 1), listOf(protection, apps, change))
+        compose.onNode(hasText("Everything stays on this device", substring = true)).performScrollTo().assertExists()
+        compose.onNodeWithText("Version 1.0 (1)").performScrollTo().assertExists()
+    }
+
+    @Test fun wipeDialogNeedsExplicitConfirmation() {
+        val events = mutableListOf<SettingsEvent>()
+        compose.setContent {
+            AppLockerTheme { SettingsContent(SettingsUiState(availability = BiometricAvailability.AVAILABLE, confirmWipe = true), { events += it }) }
+        }
+        compose.onNodeWithText("Erase everything?").assertExists()
+        compose.onNodeWithText("Erase everything").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        assertEquals(listOf<SettingsEvent>(SettingsEvent.ConfirmWipe, SettingsEvent.DismissWipe), events)
+    }
+
+    @Test fun wipeButtonRequestsPinConfirmation() {
+        val events = mutableListOf<SettingsEvent>()
+        compose.setContent { AppLockerTheme { SettingsContent(SettingsUiState(availability = BiometricAvailability.AVAILABLE), { events += it }) } }
+        compose.onNodeWithText("Erase all app data").performScrollTo().performClick()
+        assertEquals(listOf<SettingsEvent>(SettingsEvent.WipeRequested), events)
+    }
+
+    @Test fun wipeDialogShowsProgressAndCannotBeConfirmedAgain() {
+        compose.setContent {
+            AppLockerTheme { SettingsContent(SettingsUiState(confirmWipe = true, wiping = true), {}) }
+        }
+        compose.onNodeWithText("Erasing...").assertExists()
+        compose.onNodeWithText("Erase everything").assertIsNotEnabled()
+    }
+
+    @Test fun wipePinPromptUsesWipeWording() {
+        compose.setContent {
+            AppLockerTheme {
+                SettingsContent(SettingsUiState(pinConfirm = com.shashank.applocker.feature.settings.PinConfirmState(purpose = com.shashank.applocker.feature.settings.ConfirmPurpose.WIPE)), {})
+            }
+        }
+        compose.onNode(hasText("erasing all data", substring = true)).assertExists()
+    }
+
+    // --- Change PIN ---
+
+    private fun changePin(state: com.shashank.applocker.feature.pin.ChangePinUiState, onClose: () -> Unit = {}) {
+        compose.setContent { AppLockerTheme { com.shashank.applocker.feature.pin.ChangePinContent(state, {}, onClose) } }
+    }
+
+    @Test fun changePinAsksForCurrentPinFirstAndCanBeCancelled() {
+        var closed = 0
+        changePin(com.shashank.applocker.feature.pin.ChangePinUiState(), onClose = { closed++ })
+        compose.onNodeWithText("Current PIN").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
+        assertEquals(1, closed)
+    }
+
+    @Test fun changePinStepsAndErrorsAreShown() {
+        changePin(com.shashank.applocker.feature.pin.ChangePinUiState(step = com.shashank.applocker.feature.pin.ChangePinStep.NEW, error = com.shashank.applocker.feature.pin.ChangePinError.SameAsCurrent))
+        compose.onNodeWithText("New PIN").assertExists()
+        compose.onNodeWithText("Choose a PIN different from your current one.").assertExists()
+    }
+
+    @Test fun changePinDoneScreenClosesAndMentionsFingerprint() {
+        var closed = 0
+        changePin(com.shashank.applocker.feature.pin.ChangePinUiState(step = com.shashank.applocker.feature.pin.ChangePinStep.DONE), onClose = { closed++ })
+        compose.onNodeWithText("PIN changed").assertExists()
+        compose.onNode(hasText("Fingerprint unlock keeps working", substring = true)).assertExists()
+        compose.onNodeWithText("Done").performClick()
+        assertEquals(1, closed)
     }
 
     @Test fun noHardwareDisablesSwitchAndExplains() {

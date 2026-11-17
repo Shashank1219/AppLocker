@@ -11,11 +11,10 @@ import kotlinx.coroutines.flow.update
 class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRepository {
     val state = MutableStateFlow(initial)
     override val settings = state
-    override suspend fun setOnboardingCompleted(completed: Boolean) = state.update { it.copy(onboardingCompleted = completed) }
     override suspend fun setFingerprintEnabled(enabled: Boolean) = state.update { it.copy(fingerprintEnabled = enabled) }
     override suspend fun setRelockDelay(delay: RelockDelay) = state.update { it.copy(relockDelay = delay) }
-    override suspend fun setAccessibilityServiceEnabled(enabled: Boolean) = state.update { it.copy(accessibilityServiceEnabled = enabled) }
     override suspend fun setShowSystemApps(show: Boolean) = state.update { it.copy(showSystemApps = show) }
+    override suspend fun clear() = state.update { AppSettings() }
 }
 
 class FakeCapabilities(

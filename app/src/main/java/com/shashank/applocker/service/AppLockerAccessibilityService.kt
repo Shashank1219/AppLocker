@@ -51,13 +51,18 @@ class AppLockerAccessibilityService : AccessibilityService() {
     /** Safest value until settings have been read. */
     private var relockDelay = RelockDelay.IMMEDIATELY
 
+    private var homePackages: Set<String> = emptySet()
+    private val realAppCache = HashMap<String, Boolean>()
     private var receiverRegistered = false
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> gate.onScreenOff()
                 // The front app may not send a new event when the screen comes back, so look again.
-                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> gate.foregroundPackage?.let(::evaluate)
+                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+                    realAppCache.clear()
+                    gate.foregroundPackage?.let(::evaluate)
+                }
             }
         }
     }
@@ -69,6 +74,8 @@ class AppLockerAccessibilityService : AccessibilityService() {
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         scope = newScope
         ignored = resolveIgnoredPackages()
+        realAppCache.clear()
+        homePackages = resolveHomePackages()
         newScope.launch { protectedApps.observeLockedPackages().collect { locked = it } }
         newScope.launch { settings.settings.map { it.relockDelay }.collect { relockDelay = it } }
         newScope.launch {
@@ -91,9 +98,24 @@ class AppLockerAccessibilityService : AccessibilityService() {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         status.onEventReceived()
         val pkg = event.packageName?.toString()
-        if (pkg == null || tracker.isIgnored(pkg)) return
+        if (pkg == null || tracker.isIgnored(pkg) || !isRealApp(pkg)) return
         evaluate(pkg)
     }
+
+    /**
+     * Only a real app counts as "something came to the front": one with a launcher entry, or a
+     * home screen. System overlays (fingerprint dialogs, permission pop-ups, vendor panels) are
+     * not, so they can neither lock nor relock anything. Cached per package.
+     */
+    private fun isRealApp(pkg: String): Boolean = realAppCache.getOrPut(pkg) {
+        pkg in homePackages || runCatching { packageManager.getLaunchIntentForPackage(pkg) != null }.getOrDefault(true)
+    }
+
+    private fun resolveHomePackages(): Set<String> = runCatching {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        @Suppress("DEPRECATION")
+        packageManager.queryIntentActivities(home, 0).mapNotNull { it.activityInfo?.packageName }.toSet()
+    }.getOrDefault(emptySet())
 
     /** Decides for [pkg] and shows the lock if needed. */
     private fun evaluate(pkg: String) {

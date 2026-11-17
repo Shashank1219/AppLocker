@@ -29,9 +29,14 @@ class SettingsViewModelTest {
     private val pins = FakePinRepository()
     private val fp = FingerprintRig(fingerprintEnabled = false)
     private val sessions = UnlockSessionManager(lock.clock)
+    private class FakeWiper(var result: com.shashank.applocker.security.WipeResult = com.shashank.applocker.security.WipeResult.SUCCESS) : com.shashank.applocker.security.AppDataWiper {
+        var calls = 0
+        override suspend fun wipe(): com.shashank.applocker.security.WipeResult { calls++; return result }
+    }
+    private val wiper = FakeWiper()
     // Lazy: the ViewModel starts coroutines in init, after MainDispatcherRule has run.
     private val vm by lazy {
-        SettingsViewModel(fp.settings, PinAuthenticator(pins, LockoutManager(lock.repo, lock.clock, lock.credentials)), fp.auth, sessions)
+        SettingsViewModel(fp.settings, PinAuthenticator(pins, LockoutManager(lock.repo, lock.clock, lock.credentials)), fp.auth, sessions, wiper)
     }
 
     private fun typePin(pin: String) = pin.forEach { vm.onEvent(SettingsEvent.PinDigit(it)) }
@@ -48,6 +53,69 @@ class SettingsViewModelTest {
         vm.onEvent(SettingsEvent.LockAllNow)
         assertTrue(sessions.requiresUnlock("a", com.shashank.applocker.domain.model.RelockDelay.ON_SCREEN_OFF))
         assertEquals(SettingsMessage.AllLocked, vm.state.value.message)
+    }
+
+    // --- Wipe ---
+
+    @Test fun wipeAsksForThePinBeforeAnything() {
+        vm.onEvent(SettingsEvent.WipeRequested)
+        assertEquals(ConfirmPurpose.WIPE, vm.state.value.pinConfirm?.purpose)
+        assertFalse(vm.state.value.confirmWipe)
+        assertEquals(0, wiper.calls)
+    }
+
+    @Test fun wrongPinNeverReachesTheWipeDialog() {
+        pins.verifyResult = PinVerifyResult.Incorrect
+        vm.onEvent(SettingsEvent.WipeRequested)
+        typePin("135791")
+        assertEquals(PinConfirmError.INCORRECT, vm.state.value.pinConfirm?.error)
+        assertEquals(ConfirmPurpose.WIPE, vm.state.value.pinConfirm?.purpose)
+        assertFalse(vm.state.value.confirmWipe)
+        assertEquals(0, wiper.calls)
+    }
+
+    @Test fun correctPinShowsTheSecondConfirmationButDoesNotWipeYet() {
+        vm.onEvent(SettingsEvent.WipeRequested)
+        typePin("135790")
+        assertTrue(vm.state.value.confirmWipe)
+        assertNull(vm.state.value.pinConfirm)
+        assertEquals(0, wiper.calls)
+        assertEquals(0, fp.keys.disableCalls) // no fingerprint enrolment was started either
+    }
+
+    @Test fun cancellingTheSecondConfirmationWipesNothing() {
+        vm.onEvent(SettingsEvent.WipeRequested)
+        typePin("135790")
+        vm.onEvent(SettingsEvent.DismissWipe)
+        assertFalse(vm.state.value.confirmWipe)
+        assertEquals(0, wiper.calls)
+    }
+
+    @Test fun confirmingWipesAndTellsTheScreenToRestart() = runTest {
+        vm.effects.test {
+            vm.onEvent(SettingsEvent.WipeRequested)
+            typePin("135790")
+            vm.onEvent(SettingsEvent.ConfirmWipe)
+            assertEquals(SettingsEffect.Wiped, awaitItem())
+        }
+        assertEquals(1, wiper.calls)
+        assertFalse(vm.state.value.confirmWipe)
+    }
+
+    @Test fun confirmWithoutThePinIsIgnored() {
+        vm.onEvent(SettingsEvent.ConfirmWipe)
+        assertEquals(0, wiper.calls)
+    }
+
+    @Test fun incompleteWipeIsReportedAndDoesNotRestart() = runTest {
+        wiper.result = com.shashank.applocker.security.WipeResult.INCOMPLETE
+        vm.effects.test {
+            vm.onEvent(SettingsEvent.WipeRequested)
+            typePin("135790")
+            vm.onEvent(SettingsEvent.ConfirmWipe)
+            expectNoEvents()
+        }
+        assertEquals(SettingsMessage.WipeIncomplete, vm.state.value.message)
     }
 
     @Test fun startsOffAndReportsAvailability() {

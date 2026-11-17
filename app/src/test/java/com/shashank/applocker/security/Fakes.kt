@@ -22,6 +22,11 @@ class FakeSecretStore : SecretStore {
     override fun remove(key: String) {
         data.remove(key)
     }
+
+    override fun clear() {
+        if (failing) throw SecretStoreException()
+        data.clear()
+    }
 }
 
 /** Real PBKDF2 but a tiny work factor so tests stay fast. */

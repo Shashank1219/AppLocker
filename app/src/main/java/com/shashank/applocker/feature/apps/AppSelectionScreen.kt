@@ -29,6 +29,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shashank.applocker.R
@@ -74,7 +76,7 @@ fun AppSelectionContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(stringResource(R.string.apps_title), style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.apps_title), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
         OutlinedTextField(
             value = state.query,
             onValueChange = { onEvent(AppSelectionEvent.QueryChanged(it)) },

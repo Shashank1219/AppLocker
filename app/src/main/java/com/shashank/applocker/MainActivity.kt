@@ -44,6 +44,7 @@ class MainActivity : FragmentActivity() {
                             startDestination = s.route,
                             isUnlocked = unlocked,
                             onUnlocked = viewModel::onUnlocked,
+                            onDataWiped = viewModel::onDataWiped,
                             modifier = Modifier.padding(innerPadding),
                         )
                         StartState.StorageError -> Column(
